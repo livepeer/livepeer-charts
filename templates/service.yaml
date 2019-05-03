@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "livepeer.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "livepeer.name" . }}
+    helm.sh/chart: {{ include "livepeer.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: {{ include "livepeer.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
