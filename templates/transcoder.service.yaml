@@ -9,8 +9,9 @@ metadata:
     app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
   type: ClusterIP
+  clusterIP: None
   ports:
-    - port: 443
+    - port: 8935
       targetPort: 8935
       protocol: TCP
       name: https

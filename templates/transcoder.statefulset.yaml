@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: DaemonSet
+kind: StatefulSet
 metadata:
   name: {{ include "livepeer.fullname" . }}-transcoder
   labels:
@@ -8,6 +8,8 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
+  serviceName: {{ include "livepeer.fullname" . }}-transcoder
+  replicas: 10
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "livepeer.name" . }}-transcoder
@@ -18,15 +20,27 @@ spec:
         app.kubernetes.io/name: {{ include "livepeer.name" . }}-transcoder
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                - {{ include "livepeer.name" . }}-transcoder
+            topologyKey: "kubernetes.io/hostname"
       containers:
         - name: {{ .Chart.Name }}-transcoder
           image: "{{ .Values.images.goLivepeer.repository }}:{{ .Values.images.goLivepeer.tag }}"
           imagePullPolicy: {{ .Values.images.goLivepeer.pullPolicy }}
+          command:
+            - /bin/bash
+            - -c
           args:
-            - -orchestrator
-            - -transcoder
-            - -httpAddr=0.0.0.0:8935
-            - -serviceAddr={{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:443
+            # - tail -f /dev/null
+            - sleep 30 && /root/start.sh -orchestrator -transcoder -httpAddr=0.0.0.0:8935 -serviceAddr=${HOSTNAME}.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935
+            # - cbs-demo-livepeer-transcoder-0.cbs-demo-livepeer-transcoder.default.svc.cluster.local
           ports:
             - name: http
               containerPort: 80
