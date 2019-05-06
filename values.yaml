@@ -15,28 +15,26 @@ images:
 
 broadcaster:
 
-  resources: {}
-
   nodeSelector:
-    "beta.kubernetes.io/instance-type": "c4.large"
+    "livepeer.org/node-type": "broadcaster"
+
+  resources: {}
 
   tolerations: []
 
   affinity: {}
 
-# transcoder:
+transcoder:
 
-#   resources: {}
+  nodeSelector:
+    "livepeer.org/node-type": "transcoder"
 
-#   nodeSelector:
-#     "beta.kubernetes.io/instance-type": "c4.large"
+  resources: {}
 
-#   tolerations: []
+  tolerations: []
 
-#   affinity: {}
-  # service:
-  #   type: ClusterIP
-  #   port: 1935
+  affinity: {}
+
 # ingress:
 #   enabled: false
 #   annotations:
