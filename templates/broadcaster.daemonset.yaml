@@ -24,6 +24,9 @@ spec:
           imagePullPolicy: {{ .Values.images.goLivepeer.pullPolicy }}
           args:
             - -broadcaster
+            - -rtmpAddr=0.0.0.0:1935
+            - -orchAddr=cbs-demo-livepeer-transcoder-0.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-1.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-2.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-3.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-4.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-5.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-6.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-7.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-8.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-9.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935
+            - transcodingOptions=P240p30fps16x9,P360p30fps16x9,P576p30fps16x9,P720p30fps16x9
           ports:
             - name: http
               containerPort: 80
