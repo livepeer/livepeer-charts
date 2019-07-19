@@ -38,8 +38,8 @@ spec:
             - /bin/bash
             - -c
           args:
-            # - tail -f /dev/null
-            - sleep 30 && /root/start.sh -orchestrator -transcoder -httpAddr=0.0.0.0:8935 -serviceAddr=${HOSTNAME}.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935
+            # - The sleep is unfortunate but we need tome for our service address to be available
+            - sleep 10 && livepeer -orchestrator -transcoder -httpAddr=0.0.0.0:8935 -serviceAddr=${HOSTNAME}.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935
             # - cbs-demo-livepeer-transcoder-0.cbs-demo-livepeer-transcoder.default.svc.cluster.local
           ports:
             - name: http

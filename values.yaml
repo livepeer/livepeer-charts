@@ -35,6 +35,20 @@ transcoder:
 
   affinity: {}
 
+api:
+  replicas: 2
+
+  nodeSelector: {}
+
+  resources: {}
+
+  tolerations: []
+
+  affinity: {}
+
+  environment: []
+
+
 # ingress:
 #   enabled: false
 #   annotations:

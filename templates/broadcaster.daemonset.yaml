@@ -25,11 +25,13 @@ spec:
           args:
             - -broadcaster
             - -rtmpAddr=0.0.0.0:1935
-            - -orchAddr=cbs-demo-livepeer-transcoder-0.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-1.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-2.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-3.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-4.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-5.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-6.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-7.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-8.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935,cbs-demo-livepeer-transcoder-9.cbs-demo-livepeer-transcoder.default.svc.cluster.local:8935
+            - -cliAddr=0.0.0.0:7935
+            - -orchAddr={{ include "livepeer.fullname" . }}-transcoder-0.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-1.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-2.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-3.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-4.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-5.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-6.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-7.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-8.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-9.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935
             - transcodingOptions=P240p30fps16x9,P360p30fps16x9,P576p30fps16x9,P720p30fps16x9
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 7935
+              hostPort: 80
               protocol: TCP
             - name: rtmp
               containerPort: 1935

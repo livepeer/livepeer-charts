@@ -1,19 +1,19 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "livepeer.fullname" . }}-broadcaster
+  name: {{ include "livepeer.fullname" . }}-api-server
   labels:
-    app.kubernetes.io/name: {{ include "livepeer.name" . }}-broadcaster
+    app.kubernetes.io/name: {{ include "livepeer.name" . }}-api-server
     helm.sh/chart: {{ include "livepeer.chart" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
   type: NodePort
   ports:
-    - port: 1935
-      targetPort: 1935
+    - port: 80
+      targetPort: 80
       protocol: TCP
-      name: rtmp
+      name: http
   selector:
-    app.kubernetes.io/name: {{ include "livepeer.name" . }}-broadcaster
+    app.kubernetes.io/name: {{ include "livepeer.name" . }}-api-server
     app.kubernetes.io/instance: {{ .Release.Name }}
