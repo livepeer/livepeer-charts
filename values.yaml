@@ -24,6 +24,11 @@ broadcaster:
 
   affinity: {}
 
+  # Broadcasters are often running with hostPort 443, handle own tls
+  tls:
+    enabled: false
+    # secret: example.com
+
 transcoder:
 
   nodeSelector:
@@ -47,7 +52,6 @@ api:
   affinity: {}
 
   environment: []
-
 
 # ingress:
 #   enabled: false

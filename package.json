@@ -1,19 +1,5 @@
 {
-  "name": "livepeer-chart",
-  "version": "1.0.0",
-  "description": "This installs a scalable, cloud-native distribution of Livepeer on to a Kubernetes cluster.",
-  "main": "index.js",
   "scripts": {
     "deploy-prod": "helm upgrade -f /keybase/team/livepeer_admins/helm/prod.values.yaml prod ."
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/livepeer/livepeer-chart.git"
-  },
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/livepeer/livepeer-chart/issues"
-  },
-  "homepage": "https://github.com/livepeer/livepeer-chart#readme"
+  }
 }
