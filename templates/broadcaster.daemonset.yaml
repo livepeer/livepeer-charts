@@ -14,28 +14,37 @@ spec:
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/broadcaster.configmap.yaml") . | sha256sum | quote }}
       labels:
         app.kubernetes.io/name: {{ include "livepeer.name" . }}-broadcaster
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
+      {{- if .Values.broadcaster.tls.enabled }}
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: {{ include "livepeer.fullname" . }}-broadcaster
+        - name: tls
+          secret:
+            secretName: {{ .Values.broadcaster.tls.secret }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}-broadcaster
           image: "{{ .Values.images.goLivepeer.repository }}:{{ .Values.images.goLivepeer.tag }}"
           imagePullPolicy: {{ .Values.images.goLivepeer.pullPolicy }}
           args:
             - -broadcaster
+            - -authWebhookUrl=http://{{ include "livepeer.fullname" . }}-api-server.{{  .Release.Namespace }}.svc.cluster.local/api/stream/hook
             - -rtmpAddr=0.0.0.0:1935
             - -cliAddr=0.0.0.0:7935
             - -orchAddr={{ include "livepeer.fullname" . }}-transcoder-0.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-1.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-2.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-3.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-4.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-5.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-6.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-7.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-8.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-9.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935
             - transcodingOptions=P240p30fps16x9,P360p30fps16x9,P576p30fps16x9,P720p30fps16x9
           ports:
-            - name: http
-              containerPort: 7935
-              hostPort: 80
-              protocol: TCP
             - name: rtmp
               containerPort: 1935
               protocol: TCP
+              hostPort: 1935
           # livenessProbe:
           #   httpGet:
           #     path: /
@@ -46,6 +55,26 @@ spec:
           #     port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+        {{- if .Values.broadcaster.tls.enabled }}
+        - name: nginx
+          image: nginx:stable-alpine
+          ports:
+            - name: https
+              containerPort: 443
+              hostPort: 443
+              protocol: TCP
+            - name: http
+              containerPort: 80
+              hostPort: 80
+              protocol: TCP
+          volumeMounts:
+          - name: tls
+            mountPath: "/tls"
+            readOnly: true
+          - name: nginx-conf
+            mountPath: "/etc/nginx/nginx.conf"
+            subPath: nginx.conf
+        {{- end }}
       {{- with .Values.broadcaster.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

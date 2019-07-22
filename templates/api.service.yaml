@@ -8,12 +8,16 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
-  type: NodePort
+  type: LoadBalancer
   ports:
     - port: 80
       targetPort: 80
       protocol: TCP
       name: http
+    - port: 443
+      targetPort: 443
+      protocol: TCP
+      name: https
   selector:
     app.kubernetes.io/name: {{ include "livepeer.name" . }}-api-server
     app.kubernetes.io/instance: {{ .Release.Name }}
