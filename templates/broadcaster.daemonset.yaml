@@ -54,7 +54,7 @@ spec:
           #     path: /
           #     port: http
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- toYaml .Values.broadcaster.resources | nindent 12 }}
         {{- if .Values.broadcaster.tls.enabled }}
         - name: nginx
           image: nginx:stable-alpine

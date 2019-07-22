@@ -20,6 +20,7 @@ spec:
         app.kubernetes.io/name: {{ include "livepeer.name" . }}-transcoder
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
+      privileged: true
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -39,7 +40,7 @@ spec:
             - -c
           args:
             # - The sleep is unfortunate but we need tome for our service address to be available
-            - sleep 10 && livepeer -orchestrator -transcoder -httpAddr=0.0.0.0:8935 -serviceAddr=${HOSTNAME}.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935
+            - sleep 10 && livepeer -orchestrator -transcoder -httpAddr=0.0.0.0:8935 -serviceAddr=${HOSTNAME}.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935 {{ if .Values.transcoder.gpu }}-nvidia 0{{ end }}
             # - cbs-demo-livepeer-transcoder-0.cbs-demo-livepeer-transcoder.default.svc.cluster.local
           ports:
             - name: http
@@ -57,7 +58,7 @@ spec:
           #     path: /
           #     port: http
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- toYaml .Values.transcoder.resources | nindent 12 }}
       {{- with .Values.transcoder.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

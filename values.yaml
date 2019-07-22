@@ -15,8 +15,7 @@ images:
 
 broadcaster:
 
-  nodeSelector:
-    "livepeer.org/node-type": "broadcaster"
+  nodeSelector: {}
 
   resources: {}
 
@@ -31,8 +30,9 @@ broadcaster:
 
 transcoder:
 
-  nodeSelector:
-    "livepeer.org/node-type": "transcoder"
+  gpu: false
+
+  nodeSelector: {}
 
   resources: {}
 
