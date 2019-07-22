@@ -31,6 +31,8 @@ data:
         listen 443 ssl default_server;
         listen [::]:443 ssl default_server;
 
+        client_max_body_size 50M; # Arbitrary, but the default is 1M and that won't do.
+
         server_name _;
 
         location /live {
