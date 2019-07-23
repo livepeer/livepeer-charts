@@ -31,16 +31,24 @@ spec:
                 values:
                 - {{ include "livepeer.name" . }}-transcoder
             topologyKey: "kubernetes.io/hostname"
+      # privileged: true
+      # volumes:
+      #   - name: hostlibs
+      #     hostPath:
+      #       path: /usr/lib/x86_64-linux-gnu
       containers:
         - name: {{ .Chart.Name }}-transcoder
           image: "{{ .Values.images.goLivepeer.repository }}:{{ .Values.images.goLivepeer.tag }}"
           imagePullPolicy: {{ .Values.images.goLivepeer.pullPolicy }}
+          # env:
+          #   - name: LD_LIBRARY_PATH
+          #     value: /hostlibs
           command:
             - /bin/bash
             - -c
           args:
             # - The sleep is unfortunate but we need tome for our service address to be available
-            - sleep 10 && livepeer -orchestrator -transcoder -httpAddr=0.0.0.0:8935 -serviceAddr=${HOSTNAME}.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935 {{ if .Values.transcoder.gpu }}-nvidia 0{{ end }}
+            - sleep 10 && livepeer -v=6 -orchestrator -transcoder -httpAddr=0.0.0.0:8935 -serviceAddr=${HOSTNAME}.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935 {{ if .Values.transcoder.gpu }}-nvidia 0{{ end }}
             # - cbs-demo-livepeer-transcoder-0.cbs-demo-livepeer-transcoder.default.svc.cluster.local
           ports:
             - name: http

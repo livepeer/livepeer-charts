@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "livepeer.fullname" . }}-nvidia-driver-installer
+  labels:
+    app.kubernetes.io/name: {{ include "livepeer.name" . }}-nvidia-driver-installer
+    helm.sh/chart: {{ include "livepeer.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "livepeer.name" . }}-nvidia-driver-installer
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/nvidia-driver-installer.configmap.yaml") . | sha256sum | quote }}
+      labels:
+        app.kubernetes.io/name: {{ include "livepeer.name" . }}-nvidia-driver-installer
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      hostNetwork: true
+      hostPID: true
+      hostIPC: true
+      securityContext:
+        privileged: true
+      volumes:
+        - name: install-nvidia-drivers
+          configMap:
+            name: {{ include "livepeer.fullname" . }}-nvidia-driver-installer
+        - name: dev
+          hostPath:
+            path: /dev
+        - name: run
+          hostPath:
+            path: /run
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+        - name: boot
+          hostPath:
+            path: /boot
+        - name: root-mount
+          hostPath:
+            path: /
+            
+      terminationGracePeriodSeconds: 5
+      initContainers:
+        - name:  nvidia-driver-installer
+          image: "ubuntu:18.04"
+          imagePullPolicy: {{ .Values.images.goLivepeer.pullPolicy }}
+          command:
+          - bash
+          - -c
+          - cp /install-nvidia-drivers.sh /host-root && chmod 755 /host-root/install-nvidia-drivers.sh && chroot /host-root /install-nvidia-drivers.sh
+          volumeMounts:
+          - name: boot
+            mountPath: /boot
+          - name: dev
+            mountPath: /dev
+          - name: root-mount
+            mountPath: /host-root
+          - name: install-nvidia-drivers
+            mountPath: /install-nvidia-drivers.sh
+            subPath: install-nvidia-drivers.sh
+          - name: cgroup
+            mountPath: /sys/fs/cgroup
+            readOnly: true
+          - name: run
+            mountPath: /run
+          # livenessProbe:
+          #   httpGet:
+          #     path: /
+          #     port: http
+          # readinessProbe:
+          #   httpGet:
+          #     path: /
+          #     port: http
+      containers:
+      - image: "gcr.io/google-containers/pause:2.0"
+        name: pause
+      {{- with .Values.transcoder.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.transcoder.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.transcoder.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
