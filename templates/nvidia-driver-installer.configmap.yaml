@@ -10,8 +10,6 @@ data:
     set -x
     set -o nounset
 
-    tail -f /dev/null
-
     export DEBIAN_FRONTEND=noninteractive
 
     apt-get update 
