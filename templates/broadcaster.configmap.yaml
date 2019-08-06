@@ -18,18 +18,19 @@ data:
     http {
       ssl_certificate /tls/tls.crt;
       ssl_certificate_key /tls/tls.key;
-      # ssl_ciphers EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH;
-      # ssl_protocols TLSv1.1 TLSv1.2;
+      ssl_ciphers EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH;
+      ssl_protocols TLSv1.1 TLSv1.2;
 
-      server {
-        listen 80 default_server;
-        server_name _;
-        return 301 https://$host$request_uri;
-      }
+      # server {
+      #   listen 80 default_server;
+      #   server_name _;
+      #   return 301 https://$host$request_uri;
+      # }
 
       server {
         listen 443 ssl default_server;
         listen [::]:443 ssl default_server;
+        listen 80 default_server;
 
         client_max_body_size 50M; # Arbitrary, but the default is 1M and that won't do.
 
