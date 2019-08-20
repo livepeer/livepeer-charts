@@ -5,7 +5,7 @@
 images:
   goLivepeer:
     repository: livepeer/go-livepeer
-    tag: edge
+    tag: mediaintegration
     pullPolicy: Always
 
   api:

@@ -35,9 +35,10 @@ spec:
           imagePullPolicy: {{ .Values.images.goLivepeer.pullPolicy }}
           args:
             - -broadcaster
-            - -authWebhookUrl=http://{{ include "livepeer.fullname" . }}-api-server.{{  .Release.Namespace }}.svc.cluster.local/api/stream/hook
+            - -authWebhookUrl=http://{{ include "livepeer.fullname" . }}-api-server.{{  .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.httpPort }}/api/stream/hook
             - -rtmpAddr=0.0.0.0:1935
             - -cliAddr=0.0.0.0:7935
+            - -httpAddr=0.0.0.0:8935
             - -orchAddr={{ include "livepeer.fullname" . }}-transcoder-0.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-1.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-2.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-3.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-4.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-5.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-6.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-7.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-8.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935,{{ include "livepeer.fullname" . }}-transcoder-9.{{ include "livepeer.fullname" . }}-transcoder.default.svc.cluster.local:8935
             - transcodingOptions=P240p30fps16x9,P360p30fps16x9,P576p30fps16x9,P720p30fps16x9
           ports:
@@ -45,6 +46,12 @@ spec:
               containerPort: 1935
               protocol: TCP
               hostPort: 1935
+            {{- if .Values.broadcaster.tls.enabled }}{{else}}
+            - name: http
+              containerPort: 8935
+              hostPort: 8935
+              protocol: TCP
+            {{- end }}
           # livenessProbe:
           #   httpGet:
           #     path: /

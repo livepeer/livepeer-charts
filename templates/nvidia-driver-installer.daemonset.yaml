@@ -1,3 +1,4 @@
+{{- if .Values.transcoder.gpu }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -92,3 +93,4 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
     {{- end }}
+{{- end }}

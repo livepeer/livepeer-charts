@@ -37,7 +37,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            {{- if index .Values.api.environment 0 }}
+            {{- if .Values.api.environment }}
             {{- toYaml .Values.api.environment | nindent 12 }}
             {{- end }}
           ports:
