@@ -53,6 +53,10 @@ api:
 
   environment: []
 
+  service:
+    httpPort: 80
+    httpsPort: 443
+
 # ingress:
 #   enabled: false
 #   annotations:
