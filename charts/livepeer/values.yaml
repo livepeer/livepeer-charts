@@ -1,0 +1,17 @@
+api:
+  enabled: true
+
+broadcaster:
+  enabled: true
+
+orchestrator:
+  enabled: true
+
+transactor:
+  enabled: false
+
+monitoring:
+  enabled: true
+
+recording:
+  enabled: false

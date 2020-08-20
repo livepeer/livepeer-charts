@@ -1,0 +1,21 @@
+dependencies:
+- name: api
+  repository: file://../api
+  version: 0.1.0
+- name: orchestrator
+  repository: file://../orchestrator
+  version: 0.1.0
+- name: broadcaster
+  repository: file://../broadcaster
+  version: 0.1.0
+- name: orchestrator
+  repository: file://../orchestrator
+  version: 0.1.0
+- name: broadcaster
+  repository: file://../broadcaster
+  version: 0.1.0
+- name: monitoring
+  repository: file://../monitoring
+  version: 0.1.0
+digest: sha256:7011d4ae66d4036aa4c4997d1d34524d77aec8f59406b33d3eb207bb4928f0af
+generated: "2020-07-31T02:10:23.919158-07:00"

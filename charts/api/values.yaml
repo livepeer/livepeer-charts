@@ -1,0 +1,27 @@
+replicaCount: 3
+image: livepeerci/api:master
+pullPolicy: IfNotPresent
+env:
+  LP_KUBE_BROADCASTER_TEMPLATE: https://{{ip}}:8935
+  LP_KUBE_ORCHESTRATOR_TEMPLATE: https://{{ip}}:8935
+command:
+  - /usr/local/bin/node
+  - /app/dist/cli.js
+ports:
+  - containerPort: 80
+    name: http
+    protocol: TCP
+# resources:
+#   limits:
+#     cpu: "4"
+#     memory: 12Gi
+#   requests:
+#     cpu: "4"
+#     memory: 12Gi
+
+postgres:
+  enabled: false
+rbac:
+  create: false
+clusterIP:
+  labels: []

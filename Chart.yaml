@@ -1,5 +1,0 @@
-apiVersion: v1
-appVersion: "0.4.0-alpha"
-description: Decentralized livestreaming, built on the Ethereum blockchain.
-name: livepeer
-version: 0.0.1

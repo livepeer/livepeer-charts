@@ -1,5 +1,0 @@
-{
-  "scripts": {
-    "deploy-prod": "helm upgrade -f /keybase/team/livepeer_admins/helm/prod.values.yaml prod ."
-  }
-}

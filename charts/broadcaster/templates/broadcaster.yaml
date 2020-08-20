@@ -1,0 +1,263 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+  annotations:
+  {{- include "livepeer-lib.labels" .Values.annotations | trimPrefix "\n" | nindent 4 }}
+  labels:
+  {{- include "livepeer-lib.labels" .Values.labels  | trimPrefix "\n" | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      livepeer.live/app: {{ include "livepeer-lib.fullname" . }}
+    {{- include "livepeer-lib.labels" .Values.labels  | trimPrefix "\n" | nindent 6 }}
+  strategy:
+    {{- if .Values.strategy.rollingUpdate }}
+    rollingUpdate:
+      maxSurge: {{ .Values.strategy.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.strategy.rollingUpdate.maxUnavailable }}
+    {{- end }}
+    type: {{ .Values.strategy.type }}
+  template:
+    metadata:
+      labels:
+        livepeer.live/app: {{ include "livepeer-lib.fullname" . }}
+      {{- include "livepeer-lib.labels" .Values.labels  | trimPrefix "\n" | nindent 8 }}
+    spec:
+      {{- if .Values.affinity }}
+      affinity:
+{{ toYaml .Values.affinity | indent 8 }}
+      {{- end }}
+      {{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 8 }}
+      {{- end }}
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: lp-data
+      {{- if ne .Values.env.NETWORK "offchain" }}
+      - secret:
+          secretName: {{ include "livepeer-lib.fullname" . }}-secret
+        name: {{ include "livepeer-lib.fullname" . }}-secret
+      {{- end}}
+      containers:
+      - name: broadcaster
+        image: {{ .Values.image }}
+        imagePullPolicy: {{ .Values.pullPolicy }}
+        {{- include "broadcaster.env" . | trimPrefix "\n" | nindent 8 }}
+        command:
+        {{- range .Values.command }}
+        - {{ . }}
+        {{- end }}
+        args:
+        {{- range .Values.args }}
+        - {{ . }}
+        {{- end }}
+        {{- if .Values.env.RECORD_STORE }}
+        - "-recordStore={{ .Values.env.RECORD_STORE }}"
+        {{- end }}
+        {{- if .Values.env.LOCAL_VERIFY }}
+        - "-localVerify={{ .Values.env.LOCAL_VERIFY }}"
+        {{- end }}
+        livenessProbe:
+          failureThreshold: 6
+          httpGet:
+            path: /status
+            port: http-cli
+            scheme: HTTP
+        ports:
+        {{- range .Values.ports }}
+        - name: {{ .name}}
+          containerPort: {{ .containerPort }}
+          protocol: {{ .protocol }}
+        {{- end }}
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /status
+            port: http-cli
+            scheme: HTTP
+          timeoutSeconds: 8
+        {{- if .Values.resources }}
+        resources:
+          limits:
+            memory: {{ .Values.resources.limits.memory }}
+          requests:
+            cpu: {{ .Values.resources.requests.cpu}}
+            memory: {{ .Values.resources.requests.memory }}
+        {{- end }}
+        startupProbe:
+          httpGet:
+            path: /status
+            port: http-cli
+            scheme: HTTP
+          initialDelaySeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 3
+          failureThreshold: 6
+        volumeMounts:
+        - name: lp-data
+          mountPath: /root/.lpData
+        {{- if ne .Values.env.NETWORK "offchain" }}
+        - name: {{ include "livepeer-lib.fullname" . }}-secret
+          mountPath: "/pw.txt"
+          subPath: "passphrase.secret"
+          readOnly: true
+        - name: {{ include "livepeer-lib.fullname" . }}-secret
+          subPath: "wallet.secret"
+          readOnly: true
+        {{- if eq .Values.env.NETWORK "rinkeby"}}
+          mountPath: "/root/.lpData/rinkeby/keystore/wallet"
+        {{- else if eq .Values.env.NETWORK "mainnet" }}
+          mountPath: "/root/.lpData/mainnet/keystore/wallet"
+        {{- end }}
+        {{- end }}
+      {{- if .Values.streamInfo.enabled }}
+      - name: stream-info
+        image: "{{ .Values.streamInfo.image }}"
+        command:
+          - /usr/local/bin/node
+        args:
+          - /app/dist/stream-info-service.js
+        {{- include "broadcaster.streamInfo.env" . | nindent 8 }}
+      {{- end }}
+
+---
+
+{{- if ne .Values.env.NETWORK "offchain" }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}-secret
+type: Opaque
+data:
+  "wallet.secret": |-
+    {{ required "Helm Error: .Values.wallet is required" .Values.wallet | b64enc }}
+  "passphrase.secret": |-
+    {{ required "Helm error: .Values.passphrase is required" .Values.passphrase | b64enc }}
+{{- end}}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+  labels:
+    {{- include "livepeer-lib.labels" .Values.clusterIP.labels | trimPrefix "\n" | nindent 4 }}
+  annotations:
+    prometheus.io/{{ .Values.global.promKubeScrape | default "scrape" }}: "true"
+    prometheus.io/port: "7935"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8935
+      protocol: TCP
+      name: http-video
+    - port: 7935
+      targetPort: 7935
+      protocol: TCP
+      name: http-cli
+  selector:
+    livepeer.live/app: {{ include "livepeer-lib.fullname" . }}
+{{- if .Values.clusterIP.topologyKeys }}
+  topologyKeys:
+{{- range .Values.clusterIP.topologyKeys }}
+    - "{{ . }}"
+{{- end }}
+{{- end }}
+
+---
+
+{{- if .Values.ingress.enabled }}
+{{- if eq .Values.ingress.kind "Ingress" }}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+  annotations:
+    {{- include "livepeer-lib.labels" .Values.ingress.annotations | trimPrefix "\n" | nindent 4 }}
+spec:
+  {{- if .Values.ingress.tls }}
+  tls:
+    - hosts:
+      - {{ .Values.ingress.host }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          {{- $root := . }}
+          {{- range .Values.ingress.prefixes }}
+          - path: {{ . }}/*
+            backend:
+              serviceName: {{ include "livepeer-lib.fullname" $root }}
+              servicePort: 80
+          - path: {{ . }}
+            backend:
+              serviceName: {{ include "livepeer-lib.fullname" $root }}
+              servicePort: 80
+          {{- end }}
+{{- end }}
+{{- if eq .Values.ingress.kind "IngressRoute" }}
+# Add in this ExternalName service for ServiceTopology support in Traefik
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}-extname
+  labels:
+    {{- include "livepeer-lib.labels" .Values.clusterIP.labels | trimPrefix "\n" | nindent 4 }}
+spec:
+  type: ExternalName
+  externalName: {{ include "livepeer-lib.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+---
+
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    {{- $root := . }}
+    {{- range $root.Values.ingress.prefixes }}
+    - match: Host(`{{ $root.Values.ingress.host }}`) && PathPrefix(`{{ . }}`)
+      kind: Rule
+      priority: 12
+      services:
+        - port: 80
+          strategy: RoundRobin
+          name: {{ include "livepeer-lib.fullname" $root }}-mirror
+          kind: TraefikService
+    {{- end }}
+
+  {{- if .Values.ingress.tls }}
+  tls:
+    secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+
+---
+
+apiVersion: traefik.containo.us/v1alpha1
+kind: TraefikService
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}-mirror
+spec:
+  mirroring:
+    name: {{ include "livepeer-lib.fullname" . }}-extname
+    port: 80
+    mirrors:
+      {{- range .Values.ingress.mirrors }}
+      - name: {{ .name }}
+        percent: {{ .percent }}
+        port: {{ .port }}
+      {{- end }}
+{{- end }}
+{{- end }}

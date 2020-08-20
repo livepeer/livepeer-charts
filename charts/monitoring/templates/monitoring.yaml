@@ -1,0 +1,305 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+  labels:
+    livepeer.live/app: {{ include "livepeer-lib.fullname" . }}
+  {{- include "livepeer-lib.labels" .Values.labels | trimPrefix "\n" | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      livepeer.live/app: {{ include "livepeer-lib.fullname" . }}
+    {{- include "livepeer-lib.labels" .Values.labels | trimPrefix "\n" | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        livepeer.live/app: {{ include "livepeer-lib.fullname" . }}
+      {{- include "livepeer-lib.labels" .Values.labels | trimPrefix "\n" | nindent 8 }}
+    spec:
+      {{- if .Values.affinity }}
+      affinity:
+{{ toYaml .Values.affinity | indent 8 }}
+      {{- end }}
+      volumes:
+        - name: prometheus-data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim: 
+            claimName: {{ include "livepeer-lib.fullname" . }}-prometheus-pvc
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- if .Values.longterm.enabled }}
+        - name: pg-prometheus-data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "livepeer-lib.fullname" . }}-pgprom-pvc
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- end }}
+      {{- if .Values.rbac.create }}
+      serviceAccountName: {{ include "livepeer-lib.fullname" . }}
+      {{- else if .Values.serviceAccountName }}
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      {{- end }}
+      initContainers:
+        {{- if .Values.longterm.enabled }}
+        - name: chown-data3
+          image: busybox
+          command:
+            - chown
+            - "1000"
+            - /var/lib/postgresql
+          volumeMounts:
+            - name: pg-prometheus-data
+              mountPath: /var/lib/postgresql
+        {{- end }}
+      containers:
+        - name: lpmonitoring
+          image: {{ .Values.lpmonitoring.image }}
+          imagePullPolicy: {{ .Values.lpmonitoring.pullPolicy }}
+          env:
+            {{- range $key, $value := .Values.lpmonitoring.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          args:
+            - "--mode=kubernetes"
+            {{- if .Values.longterm.enabled }}
+            - "--kube-longterm=true"
+            {{- end }}
+            - "--prometheus-storagePath=/data/prometheus"
+            {{- if .Values.global.promKubeScrape }}
+            - "{{ printf "%s=%s" "--prometheus-kube-scrape" .Values.global.promKubeScrape }}"
+            {{- else if .Values.lpmonitoring.promKubeScrape }}
+            - "{{ printf "%s=%s" "--prometheus-kube-scrape" .Values.lpmonitoring.promKubeScrape }}"
+            {{- end }}
+            {{- range .Values.lpmonitoring.args }}
+            - {{ . | quote }}
+            {{- end }}
+          ports:
+            {{- range .Values.lpmonitoring.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .containerPort }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          volumeMounts:
+            - name: prometheus-data
+              mountPath: "/data/prometheus/"
+        {{- if .Values.longterm.enabled }}
+        - name: pg-prometheus
+          image: {{ .Values.longterm.pgprom.image }}
+          imagePullPolicy: {{ .Values.longterm.pgprom.pullPolicy }}
+          env:
+            {{- range $key, $value := .Values.longterm.pgprom.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          args:
+            {{- range .Values.longterm.pgprom.args }}
+              {{ . }}
+            {{- end}}
+          ports:
+            {{- range .Values.lpmonitoring.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .containerPort }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          volumeMounts:
+            - name: pg-prometheus-data
+              mountPath: "/var/lib/postgresql"
+              subPath: data	            
+        - name: prometheus-postgresql-adapter
+          image: {{ .Values.longterm.adapter.image }}
+          imagePullPolicy: {{ .Values.longterm.adapter.pullPolicy }}
+          args:
+            {{- range .Values.longterm.adapter.args }}
+              {{ . }}
+            {{- end}}
+          ports:
+            {{- range .Values.lpmonitoring.ports }}
+            - name: {{ .name }}
+              containerPort: {{ .containerPort }}
+              protocol: {{ .protocol }}
+            {{- end }}
+        {{- end}}
+
+{{- if .Values.rbac.create }}
+---
+
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "livepeer-lib.fullname" . }} # This must match the name of the Role/ClusterRole you wish to bind to
+subjects:
+- kind: ServiceAccount
+  name: {{ include "livepeer-lib.fullname" . }} # Name is case sensitive
+  namespace: "{{ .Release.Namespace }}"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+
+{{- end }}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+  labels:
+    livepeer.live/app: {{ include "livepeer-lib.fullname" . }}
+  {{- include "livepeer-lib.labels" .Values.labels | trimPrefix "\n" | nindent 4 }}
+  annotations:
+    prometheus.io/{{ .Values.global.promKubeScrape | default .Values.lpmonitoring.promKubeScrape | default "scrape" }}: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/prometheus/metrics"
+  {{- include "livepeer-lib.labels" .Values.annotations | trimPrefix "\n" | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    livepeer.live/app: {{ include "livepeer-lib.fullname" . }}
+  ports:
+    - port: 9090
+      targetPort: 9090
+      protocol: TCP
+      name: http-prometheus
+    - port: 80
+      targetPort: 3000
+      protocol: TCP
+      name: grafana
+    - port: 9093
+      targetPort: 9093
+      name: http-alertmanager
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+  labels:
+    livepeer.live/app: {{ include "livepeer-lib.fullname" . }}
+  {{- include "livepeer-lib.labels" .Values.ingress.labels | trimPrefix "\n" | nindent 4 }}
+  annotations:
+  {{- include "livepeer-lib.labels" .Values.ingress.annotations | trimPrefix "\n" | nindent 4 }}
+spec:
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+      {{- range .hosts }}
+      - {{ . | quote }}
+      {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end}}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /prometheus/*
+            backend:
+              serviceName: {{ include "livepeer-lib.fullname" . }}
+              servicePort: 9090
+          - path: /prometheus
+            backend:
+              serviceName: {{ include "livepeer-lib.fullname" . }}
+              servicePort: 9090
+          - path: /grafana/*
+            backend:
+              serviceName: {{ include "livepeer-lib.fullname" . }}
+              servicePort: 80
+          - path: /grafana
+            backend:
+              serviceName: {{ include "livepeer-lib.fullname" . }}
+              servicePort: 80
+          - path: /alertmanager/*
+            backend:
+              serviceName: {{ include "livepeer-lib.fullname" . }}
+              servicePort: 9093
+          - path: /alertmanager
+            backend:
+              serviceName: {{ include "livepeer-lib.fullname" . }}
+              servicePort: 9093
+
+{{- if .Values.persistence.enabled }}
+---
+
+apiVersion: v1
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}-prometheus-pvc
+spec:
+  accessModes:
+    - {{ .Values.persistence.prometheus.accessMode | quote }}
+  storageClassName: {{ .Values.persistence.prometheus.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.prometheus.size | quote }}
+{{- end }}
+
+{{- if and .Values.persistence.enabled .Values.longterm.enabled }}
+---
+
+apiVersion: v1
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}-pgprom-pvc
+spec:
+  accessModes:
+    - {{ .Values.persistence.pgprom.accessMode | quote }}
+  storageClassName: {{ .Values.persistence.pgprom.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.pgprom.size | quote }}
+{{- end }}
+
+{{- if .Values.persistence.enabled }}
+---
+
+{{- range .Values.persistence.storageClasses }}
+kind: StorageClass
+apiVersion: {{ .apiVersion }}
+metadata:
+  name: {{ .name }}
+provisioner: {{ .provisioner }}
+reclaimPolicy: {{ .reclaimPolicy }}
+allowVolumeExpansion: {{ .allowVolumeExpansion }}
+parameters:
+  {{- range $key, $value := .parameters }}
+  {{ $key }}: {{ $value }}
+  {{- end }}
+{{- end }}
+{{- end }}

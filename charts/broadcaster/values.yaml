@@ -1,0 +1,94 @@
+replicaCount: 1
+image: livepeer/go-livepeer:master
+strategy:
+  type: RollingUpdate
+  # rollingUpdate:
+  #   maxSurge: 100%
+  #   maxUnavailable: 0%
+pullPolicy: IfNotPresent
+env:
+  MAX_SESSIONS: "200"
+  AUTH_WEBHOOK_URL: ""
+  ORCH_WEBHOOK_URL: ""
+  ORCH_ADDR: ""
+  NETWORK: "offchain"
+  ETH_URL: ""
+  DEPOSIT_MULTIPLIER: "1"
+  MAX_TICKET_EV: "100000000000000"
+  MAX_PRICE_PER_UNIT: "100000"
+command:
+  - /usr/bin/livepeer
+args:
+  - -v=6
+  - -network=$(NETWORK)
+  - -broadcaster
+  - -maxSessions=$(MAX_SESSIONS)
+  - -authWebhookUrl=$(AUTH_WEBHOOK_URL)
+  - -orchWebhookUrl=$(ORCH_WEBHOOK_URL)
+  - -orchAddr=$(ORCH_ADDR)
+  - -rtmpAddr=0.0.0.0:1935
+  - -cliAddr=0.0.0.0:7935
+  - -httpAddr=0.0.0.0:8935
+  - -monitor=true
+  - -ethUrl=$(ETH_URL)
+  - -ethPassword=/pw.txt
+  - -depositMultiplier=$(DEPOSIT_MULTIPLIER)
+  - -maxTicketEV=$(MAX_TICKET_EV)
+  - -maxPricePerUnit=$(MAX_PRICE_PER_UNIT)
+ports:
+  - name: http-video
+    containerPort: 8935
+    protocol: TCP
+  - name: http-cli
+    containerPort: 7935
+    protocol: TCP
+  - name: rtmp
+    containerPort: 1935
+    protocol: TCP
+# resources:
+#   limits:
+#     memory: "24Gi"
+#   requests:
+#     cpu: "16"
+#     memory: "24Gi"
+
+ingress:
+  # Which prefixes do you want to expose?
+  prefixes:
+    - /live
+    - /stream
+    # - /recording
+  enabled: false
+  # Allowed values: Ingress, IngressRoute
+  kind: Ingress
+  # host: example.com
+  # tls:
+  #   secretName: chart-example-tls
+  # annotations:
+  #   nginx.ingress.kubernetes.io/proxy-body-size: 1000m
+  #   nginx.ingress.kubernetes.io/client-body-buffer-size: 1000m
+  #   nginx.ingress.kubernetes.io/proxy-connect-timeout: "120"
+  #   nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+  #   nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+  #   nginx.ingress.kubernetes.io/proxy-next-upstream-timeout: "120"
+  #   external-dns.alpha.kubernetes.io/ttl: "120"
+  # mirrors:
+  #   - name: service-mirror-example
+  #     percent: 100
+  #     port: 80
+  
+
+# global:
+#   # Must follow Prometheus requirements for naming and match regex [a-zA-Z_][a-zA-Z0-9_]* (ACII letters, numbers and underscores)
+#   promKubeScrape: "scrape_staging"
+
+# The streamInfoService is an optional sidecar that polls the broadcaster and send
+# stream information to the API database
+streamInfo:
+  enabled: false
+  
+  image: livepeerci/api:master
+  env: {}
+
+clusterIP:
+  labels: {}

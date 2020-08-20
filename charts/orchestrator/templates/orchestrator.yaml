@@ -1,0 +1,160 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+  labels:
+  {{- include "livepeer-lib.labels" .Values.labels  | trimPrefix "\n" | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    {{- if .Values.strategy.rollingUpdate }}
+    rollingUpdate:
+      maxSurge: {{ .Values.strategy.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.strategy.rollingUpdate.maxUnavailable }}
+    {{- end }}
+    type: {{ .Values.strategy.type }}
+  selector:
+    matchLabels:
+      livepeer.live/app: {{ include "livepeer-lib.fullname" . }}
+    {{- include "livepeer-lib.labels" .Values.labels  | trimPrefix "\n" | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+      {{- include "livepeer-lib.labels" .Values.annotations | trimPrefix "\n" | nindent 8}}
+      labels:
+        livepeer.live/app: {{ include "livepeer-lib.fullname" . }}
+      {{- include "livepeer-lib.labels" .Values.labels  | trimPrefix "\n" | nindent 8 }}
+    spec:
+      {{- if .Values.affinity }}
+      affinity:
+{{ toYaml .Values.affinity | indent 8 }}
+      {{- end }}
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: lp-data
+      {{- if ne .Values.env.NETWORK "offchain" }}
+      - secret:
+          secretName: {{ include "livepeer-lib.fullname" . }}-secret
+        name: {{ include "livepeer-lib.fullname" . }}-secret
+      {{- end}}
+      containers:
+      - name: orchestrator
+        image: {{ .Values.image }}
+        imagePullPolicy: {{ .Values.pullPolicy }}
+        {{- include "orchestrator.env" .Values.env | nindent 8 }}
+        command:
+        {{- range .Values.command }}
+        - {{ . }}
+        {{- end }}
+        args:
+        {{- range .Values.args }}
+        - {{ . }}
+        {{- end }}
+        ports:
+        {{- range .Values.ports }}
+        - name: {{ .name}}
+          containerPort: {{ .containerPort }}
+          protocol: {{ .protocol }}
+        {{- end }}
+        volumeMounts:
+        - name: lp-data
+          mountPath: /root/.lpData
+        {{- if ne .Values.env.NETWORK "offchain" }}
+        - name: {{ include "livepeer-lib.fullname" . }}-secret
+          mountPath: "/pw.txt"
+          subPath: "passphrase.secret"
+          readOnly: true
+        - name: {{ include "livepeer-lib.fullname" . }}-secret
+          subPath: "wallet.secret"
+          readOnly: true
+        {{- if eq .Values.env.NETWORK "rinkeby" }}
+          mountPath: "/root/.lpData/rinkeby/keystore/wallet"
+        {{- else if eq .Values.env.NETWORK "mainnet" }}
+          mountPath: "/root/.lpData/mainnet/keystore/wallet"
+        {{- end }}
+        {{- end }}
+        startupProbe:
+          httpGet:
+            path: /status
+            port: http-cli
+          failureThreshold: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /status
+            port: http-cli
+          initialDelaySeconds: 3
+          periodSeconds: 3
+        {{- if .Values.resources }}
+        resources:
+          {{- if .Values.resources.limits }}
+          limits:
+          {{- range $key, $value := .Values.resources.limits }}
+            {{ $key }}: {{ $value | quote }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.resources.requests }}
+          requests:
+          {{- range $key, $value := .Values.resources.requests }}
+            {{ $key }}: {{ $value | quote }}
+          {{- end }}
+          {{- end }}
+        {{- end }}
+        startupProbe:
+          httpGet:
+            path: /status
+            port: http-cli
+            scheme: HTTP
+          initialDelaySeconds: 3
+          periodSeconds: 3
+          successThreshold: 1
+          timeoutSeconds: 3
+      {{- if .Values.gpu.monitoring }}
+      - name: gpu-monitoring
+        image: petrgrishin/nvidia-smi-exporter
+        env:
+          - name: NVIDIA_DRIVER_CAPABILITIES
+            value: compute,video,utility
+      {{- end }}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+  labels:
+    {{- include "livepeer-lib.labels" .Values.clusterIP.labels | trimPrefix "\n" | nindent 4 }}
+  annotations:
+    prometheus.io/{{ .Values.global.promKubeScrape | default "scrape" }}: "true"
+    prometheus.io/port: "7935"
+spec:
+  type: ClusterIP
+  ports: 
+    - port: 80
+      targetPort: 8935
+      protocol: TCP
+      name: http-video
+    - port: 7935
+      targetPort: 7935
+      protocol: TCP
+      name: http-cli
+  selector:
+    livepeer.live/app: {{ include "livepeer-lib.fullname" . }}
+    {{- include "livepeer-lib.labels" .Values.clusterIP.labels | trimPrefix "\n" | nindent 4 }}
+
+---
+
+{{- if ne .Values.env.NETWORK "offchain" }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}-secret
+type: Opaque
+data:
+  "wallet.secret": |-
+    {{ required "Helm Error: .Values.wallet is required" .Values.wallet | b64enc }}
+  "passphrase.secret": |-
+    {{ required "Helm error: .Values.passphrase is required" .Values.passphrase | b64enc }}
+{{- end}}

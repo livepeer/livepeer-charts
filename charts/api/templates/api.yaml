@@ -1,0 +1,159 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+  labels:
+  {{- include "livepeer-lib.labels" .Values.labels  | trimPrefix "\n" | nindent 4 }}
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      livepeer.live/app: {{ include "livepeer-lib.fullname" . }}
+    {{- include "livepeer-lib.labels" .Values.labels  | trimPrefix "\n" | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        livepeer.live/app:  {{ include "livepeer-lib.fullname" . }}
+      {{- include "livepeer-lib.labels" .Values.labels  | trimPrefix "\n" | nindent 8 }}
+    spec:
+      {{- if .Values.affinity }}
+      affinity:
+{{ toYaml .Values.affinity | indent 8 }}
+      {{- end }}
+      volumes: [] # papertrail-entrypoint injected later
+      {{- if .Values.rbac.create }}
+      serviceAccountName: {{ include "livepeer-lib.fullname" . }}
+      {{- else if .Values.serviceAccountName }}
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      {{- end }}
+      containers:
+        - name: api
+          volumeMounts: [] # papertrail-entrypoint injected later
+          command:
+          {{- range .Values.command }}
+          - {{ . }}
+          {{- end }}
+          image: {{ .Values.image }}
+          {{- if .Values.resources }}
+          resources:
+            {{- if .Values.resources.limits }}
+            limits:
+            {{- range $key, $value := .Values.resources.limits }}
+              {{ $key }}: {{ $value | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.resources.requests }}
+            requests:
+            {{- range $key, $value := .Values.resources.requests }}
+              {{ $key }}: {{ $value | quote }}
+            {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- include "api.env" . | nindent 10 }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/orchestrator
+              port: http
+              scheme: HTTP
+          livenessProbe:
+            failureThreshold: 6
+            httpGet:
+              path: /api/orchestrator
+              port: http
+              scheme: HTTP
+          startupProbe:
+            httpGet:
+              path: /api/orchestrator
+              port: http
+              scheme: HTTP
+          ports:
+          {{- range .Values.ports }}
+          - name: {{ .name}}
+            containerPort: {{ .containerPort }}
+            protocol: {{ .protocol }}
+          {{- end }}
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+  labels:
+    livepeer.live/app: {{ include "livepeer-lib.fullname" . }}
+  {{- include "livepeer-lib.labels" .Values.labels  | trimPrefix "\n" | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    livepeer.live/app: {{ include "livepeer-lib.fullname" . }}
+  {{- include "livepeer-lib.labels" .Values.labels  | trimPrefix "\n" | nindent 4 }}
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+  annotations:
+  {{- include "livepeer-lib.labels" .Values.ingress.annotations | trimPrefix "\n" | nindent 4 }}
+spec:
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /api/*
+            backend:
+              serviceName: {{ include "livepeer-lib.fullname" . }}
+              servicePort: 80
+          - path: /api
+            backend:
+              serviceName: {{ include "livepeer-lib.fullname" . }}
+              servicePort: 80
+
+{{- if .Values.rbac.create }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+rules:
+  - apiGroups: [""] # "" indicates the core API group
+    resources: ["endpoints"]
+    verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+  namespace: default
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "livepeer-lib.fullname" . }} # Name is case sensitive
+    apiGroup:
+roleRef:
+  kind: Role #this must be Role or ClusterRole
+  name: {{ include "livepeer-lib.fullname" . }} # this must match the name of the Role or ClusterRole you wish to bind to
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "livepeer-lib.fullname" . }}
+{{- end }}  

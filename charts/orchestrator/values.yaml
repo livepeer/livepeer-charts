@@ -1,0 +1,52 @@
+replicaCount: 1
+image: livepeer/go-livepeer:master
+strategy:
+  rollingUpdate:
+    # This default will only work for clusters that have double the necessary transcoding capacity
+    maxSurge: 100%
+    maxUnavailable: 0%
+  type: RollingUpdate
+pullPolicy: IfNotPresent
+command:
+  - /usr/bin/livepeer
+env:
+  MAX_SESSIONS: "80"
+  NVIDIA_DEVICES: ""
+  NETWORK: "offchain"
+  ETH_URL: ""
+  ETH_ORCH_ADDR: ""
+  PRICE_PER_UNIT: "1000"
+  ORCHESTRATOR: "true"
+  TRANSCODER: "true"
+  REDEEMER: "false"
+  REDEEMER_ADDR: ""
+args:
+  - -v=6
+  - -network=$(NETWORK)
+  - -orchestrator=$(ORCHESTRATOR)
+  - -transcoder=$(TRANSCODER)
+  - -monitor=true
+  - -cliAddr=0.0.0.0:7935
+  - -httpAddr=0.0.0.0:8935
+  - -serviceAddr=$(MY_POD_IP):8935
+  - -maxSessions=$(MAX_SESSIONS)
+  - -nvidia=$(NVIDIA_DEVICES)
+  - -ethUrl=$(ETH_URL)
+  - -ethPassword=/pw.txt
+  - -ethOrchAddr=$(ETH_ORCH_ADDR)
+  - -pricePerUnit=$(PRICE_PER_UNIT)
+  - -redeemer=$(REDEEMER)
+  - -redeemerAddr=$(REDEEMER_ADDR)
+ports:
+  - name: http-video
+    containerPort: 8935
+    protocol: TCP
+  - name: http-cli
+    containerPort: 7935
+    protocol: TCP
+clusterIP:
+  labels: []
+
+# global:
+#   # Must follow Prometheus requirements for naming and match regex [a-zA-Z_][a-zA-Z0-9_]* (ACII letters, numbers and underscores)
+#   promKubeScrape: "scrape_staging"
