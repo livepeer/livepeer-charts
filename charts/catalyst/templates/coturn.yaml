@@ -1,0 +1,119 @@
+{{- if .Values.coturn.enabled }}
+{{- $selfRef := printf "%s-$(MY_POD_NAME).%s" .Values.location.region .Values.ingress.domain }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "catalyst.fullname" . }}-coturn
+  labels:
+    {{- include "catalyst.coturn.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "catalyst.coturn.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "catalyst.coturn.labels" . | nindent 8 }}
+    spec:
+      hostNetwork: true
+      volumes:
+        - name: catalyst-conf
+          configMap:
+            name: {{ include "catalyst.fullname" . }}
+            defaultMode: 0777
+        - name: var-tmp
+          emptyDir: {}
+        {{- if .Values.coturn.enableTLS }}
+        - name: tls
+          secret:
+            secretName: "{{ .Values.coturn.tlsSecret }}"
+        {{- end }}
+      containers:
+        - name: coturn
+          image: {{ .Values.coturn.image }}
+          imagePullPolicy: {{ .Values.coturn.imagePullPolicy }}
+          args:
+            {{ toYaml .Values.coturn.args | nindent 12 }}
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MY_HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: MY_REGION
+              value: "{{ $.Values.location.region }}"
+            - name: MY_REALM
+              value: "{{ $selfRef }}"
+            {{- range $key, $value := .Values.coturn.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          ports:
+            - name: turn-udp
+              containerPort: {{ .Values.coturn.ports.listening }}
+              protocol: UDP
+            - name: turn-tcp
+              containerPort: {{ .Values.coturn.ports.listening }}
+              protocol: TCP
+            {{- if .Values.coturn.enableTLS }}
+            - name: turn-tcp-tls
+              containerPort: {{ .Values.coturn.ports.tlsListening }}
+              protocol: TCP
+            - name: turn-udp-dtls
+              containerPort: {{ .Values.coturn.ports.tlsListening }}
+              protocol: UDP
+            {{- end }}
+          volumeMounts:
+            - name: catalyst-conf
+              mountPath: /etc/livepeer
+            {{- if .Values.coturn.enableTLS }}
+            - name: tls
+              mountPath: "/tls"
+              readOnly: true
+            {{- end }}
+            - name: var-tmp
+              mountPath: /var/tmp
+
+---
+
+{{- if .Values.coturn.service }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "catalyst.fullname" . }}-coturn
+  labels:
+    {{- include "catalyst.coturn.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.coturn.ports.listening }}
+      targetPort: {{ .Values.coturn.ports.listening }}
+      protocol: UDP
+      name: turn-udp
+    - port: {{ .Values.coturn.ports.listening }}
+      targetPort: {{ .Values.coturn.ports.listening }}
+      protocol: TCP
+      name: turn-tcp
+    {{- if .Values.coturn.enableTLS }}
+    - port: {{ .Values.coturn.ports.tlsListening }}
+      targetPort: {{ .Values.coturn.ports.tlsListening }}
+      protocol: UDP
+      name: turn-udp-dtls
+    - port: {{ .Values.coturn.ports.tlsListening }}
+      targetPort: {{ .Values.coturn.ports.tlsListening }}
+      protocol: TCP
+      name: turn-tcp-dtls
+    {{- end }}
+  selector:
+    {{- include "catalyst.coturn.selectorLabels" . | nindent 4 }}
+
+---
+{{- end }}
+{{- end }}

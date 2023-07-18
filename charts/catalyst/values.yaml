@@ -1,0 +1,329 @@
+replicas: 1
+image: livepeerci/catalyst:latest
+apiServer: "https://origin.livepeer.com"
+network: offchain
+vmagent:
+  url: "http://127.0.0.1"
+  label: "region=catalyst-default"
+  basicAuth:
+    username: "user"
+    password: "pass"
+
+hostPortOffset: 0
+hostPorts:
+  dtsc: 4200
+  srt: 2935
+  serf: 9935
+  rtmp: 1935
+# Expose Mist HTTP host ports directly - should only be used in testing
+httpHostPort: false
+
+# coturn server configuration defaults
+coturn:
+  enabled: false
+  tlsSecret: ''
+  image: coturn/coturn:latest
+  imagePullPolicy: Always
+  enableTLS: false
+  enableUDPRelay: true
+  service: false
+  auth:
+    username: livepeer
+    password: livepeer
+  args:
+    - -c
+    - /etc/livepeer/coturn.conf
+    - --cli-password=livepeer
+    - --realm="$MY_REALM"
+  db:
+    host: localhost
+    port: 5432
+    database: coturn_{{ livepeer_ecosystem }}
+    user: livepeer
+    password: livepeer
+  env: {}
+  ports:
+    listening: 3478
+    tlsListening: 5349
+    min: 49152
+    max: 65535
+  config: |-
+    {{- if not $.Values.coturn.enableTLS }}
+    no-tls
+    no-dtls
+    {{- else }}
+    pkey=/tls/tls.key
+    cert=/tls/tls.crt
+    tls-listening-port={{ $.Values.coturn.ports.tlsListening }}
+    {{- end }}
+    {{- if not $.Values.coturn.enableUDPRelay }}
+    no-udp-relay
+    {{- end }}
+    listening-ip=0.0.0.0
+    listening-port={{ $.Values.coturn.ports.listening }}
+    min-port={{ $.Values.coturn.ports.min }}
+    max-port={{ $.Values.coturn.ports.max }}
+    log-file=stdout
+    verbose
+    prometheus
+    pidfile=/var/tmp/turnserver.pid
+    lt-cred-mech
+    user={{ .Values.coturn.auth.username }}:{{ .Values.coturn.auth.password }}
+    psql-userdb="host={{ .Values.coturn.db.host }} port={{ .Values.coturn.db.port }} dbname={{ .Values.coturn.db.database }} user={{ .Values.coturn.db.user }} password={{ .Values.coturn.db.password }} connect_timeout=30"
+
+service:
+  type: LoadBalancer
+  ports:
+    rtmp: 1935
+    srt: 2935
+# resources:
+#   requests:
+#     memory: "4Gi"
+#   limits:
+#     memory: "4Gi"
+ingress:
+  annotations: {}
+hostNetwork: true
+startupProbe: true
+args:
+  - -c
+  - /etc/livepeer/catalyst.json
+autoPushes: []
+hardcodedBroadcasters: null
+userNewTrigger: true
+userNewStreams: ["video", "videorec"]
+
+additionalStreams: {}
+
+scrapeConfig: |-
+  global:
+    scrape_interval: 5s
+  scrape_configs:
+    - job_name: mist
+      metrics_path: /{{ .Values.prometheus }}
+      static_configs:
+        - targets:
+            - 127.0.0.1:4242
+
+    - job_name: orchestrator
+      static_configs:
+        - targets:
+            - 127.0.0.1:7936
+
+    - job_name: broadcaster
+      static_configs:
+        - targets:
+            - 127.0.0.1:7935
+
+    - job_name: analyzer
+      static_configs:
+        - targets:
+            - 127.0.0.1:8008
+            - 127.0.0.1:3004
+
+    - job_name: catalyst-api
+      metrics_path: /metrics
+      disable_compression: true
+      static_configs:
+        - targets:
+            - 127.0.0.1:7979
+
+debugLevels:
+  controller: 3
+  mistProcLivepeer: 5
+  stream: 4
+
+conf: |-
+  {{- $capi := index $.Values.protocols "livepeer-catalyst-api" -}}
+  {{- $mapic := true -}}
+  {{- $gstreamer := true -}}
+  {
+    "account": { "livepeer": { "password": "c0325e5862febef91efcfc9f4bb14382" } },
+    "bandwidth": { "exceptions": ["10.0.0.0/8"], "limit": 21474836480 },
+    "autopushes": {{ .Values.autoPushes | mustToPrettyJson | indent 2 }},
+    "config": {
+      "accesslog": "LOG",
+      "controller": {},
+      "debug": {{ .Values.debugLevels.controller }},
+      "defaultStream": null,
+      "limits": null,
+      "location": { "lat": {{ .Values.location.latitude }}, "lon": {{ .Values.location.longitude }}, "name": "{{ .Values.location.region }}" },
+      "prometheus": "{{ .Values.prometheus }}",
+      "protocols": {{ tpl (include "catalyst.protocols" .Values.protocols) . | indent 4 }},
+      "serverid": null,
+      "sessionInputMode": "14",
+      "sessionOutputMode": "14",
+      "sessionStreamInfoMode": "3",
+      "sessionViewerMode": "15",
+      "triggers": {{ $.Values.triggers | mustToPrettyJson }},
+      "trustedproxy": [
+        "0.0.0.0/1",
+        "128.0.0.0/1"
+      ]
+    },
+    "push_settings": { "maxspeed": null, "wait": 3},
+    "streams": {
+      "video": {
+        "DVR": 25000,
+        "name": "video",
+        "maxkeepaway":7500,
+        "debug": {{ $.Values.debugLevels.stream }},
+        "processes": [
+          {{- if $gstreamer }}
+          {
+            "exec": "gst-launch-1.0 -q fdsrc fd=0 ! matroskademux ! faad ! audioresample ! opusenc inband-fec=true perfect-timestamp=true ! matroskamux ! fdsink fd=1",
+            "exit_unmask": false,
+            "process": "MKVExec",
+            "track_inhibit": "audio=opus&video=source,|bframes",
+            "track_select": "video=none&audio=aac,|source,|maxbps",
+            "x-LSP-name": "AAC to Opus"
+          },
+          {
+            "exec": "gst-launch-1.0 -q fdsrc fd=0 ! matroskademux ! opusdec use-inband-fec=true ! audioresample ! voaacenc perfect-timestamp=true ! matroskamux ! fdsink fd=1",
+            "exit_unmask": false,
+            "process": "MKVExec",
+            "track_inhibit": "audio=aac",
+            "track_select": "video=none&audio=opus,|source,|maxbps",
+            "x-LSP-name": "Opus to AAC"
+          },
+          {{- end }}
+          {
+            {{- if $mapic }}
+            "access_token": "{{ required "Need catalyst-api api token" (index $capi "api-token") }}",
+            "custom_url": "{{ required "Need catalyst-api api server" (index $capi "api-server") }}/api/stream/video",
+            {{- end }}
+            "debug": {{ $.Values.debugLevels.mistProcLivepeer }},
+            {{- with $.Values.hardcodedBroadcasters }}
+            "hardcoded_broadcasters": {{ $.Values.hardcodedBroadcasters | toJson | quote }},
+            {{- end }}
+            "leastlive": "1",
+            "process": "Livepeer",
+            "target_profiles": [
+              {
+                "bitrate": 400000,
+                "fps": 30,
+                "height": 144,
+                "name": "P144p30fps16x9",
+                "width": 256,
+                "x-LSP-name": ""
+              }
+            ]
+          }
+        ],
+        "segmentsize": "2000",
+        "source": "push://"
+      },
+      "videorec": {
+        "DVR": 25000,
+        "name": "videorec",
+        "maxkeepaway":7500,
+        "debug": {{ $.Values.debugLevels.stream }},
+        "processes": [
+          {{- if $gstreamer }}
+          {
+            "exec": "gst-launch-1.0 -q fdsrc fd=0 ! matroskademux ! faad ! audioresample ! opusenc inband-fec=true perfect-timestamp=true ! matroskamux ! fdsink fd=1",
+            "exit_unmask": false,
+            "process": "MKVExec",
+            "track_inhibit": "audio=opus&video=source,|bframes",
+            "track_select": "video=none&audio=aac,|source,|maxbps",
+            "x-LSP-name": "AAC to Opus"
+          },
+          {
+            "exec": "gst-launch-1.0 -q fdsrc fd=0 ! matroskademux ! opusdec use-inband-fec=true ! audioresample ! voaacenc perfect-timestamp=true ! matroskamux ! fdsink fd=1",
+            "exit_unmask": false,
+            "process": "MKVExec",
+            "track_inhibit": "audio=aac",
+            "track_select": "video=none&audio=opus,|source,|maxbps",
+            "x-LSP-name": "Opus to AAC"
+          },
+          {{- end }}
+          {
+            {{- if $mapic }}
+            "access_token": "{{ required "Need mapic api token" (index $capi "api-token") }}",
+            "custom_url": "{{ required "Need mapic api server" (index $capi "api-server") }}/api/stream/video",
+            {{- end }}
+            "audio_select": "source",
+            "debug": {{ $.Values.debugLevels.mistProcLivepeer }},
+            {{- with $.Values.hardcodedBroadcasters }}
+            "hardcoded_broadcasters": {{ $.Values.hardcodedBroadcasters | toJson | quote }},
+            {{- end }}
+            "leastlive": "1",
+            "process": "Livepeer",
+            "target_profiles": [
+              {
+                "bitrate": 400000,
+                "fps": 30,
+                "height": 144,
+                "name": "P144p30fps16x9",
+                "width": 256,
+                "x-LSP-name": ""
+              }
+            ]
+          }
+        ],
+        "segmentsize": "2000",
+        "source": "push://"
+      },
+      {{- range $key, $value := $.Values.additionalStreams }}
+      "{{ $key }}": {{ $value | mustToPrettyJson | indent 4 }},
+      {{- end }}
+      "asset": {
+        "name": "asset",
+        "segmentsize": "1",
+        "source": "{{ required "Need .vodBucket" $.Values.vodBucket }}/$wildcard/index.m3u8"
+      }
+    },
+    "ui_settings": null
+  }
+
+protocols:
+  AAC: {}
+  DTSC:
+    port: "{{ add $.Values.hostPorts.dtsc $.Values.hostPortOffset }}"
+  EBML: {}
+  FLV: {}
+  H264: {}
+  HDS: {}
+  HLS:
+    debug: 3
+  HTTP:
+    pubaddr: https://{{ $.Values.ingress.host }}
+    debug: 3
+    playbacklog: /proc/1/fd/2
+  HTTPTS: {}
+  JSON: {}
+  MP3: {}
+  MP4:
+    debug: 3
+  OGG: {}
+  RTMP:
+    port: "{{ add $.Values.hostPorts.rtmp $.Values.hostPortOffset }}"
+  RTSP: {}
+  SDP: {}
+  SRT: {}
+  TSSRT:
+    port: "{{ add $.Values.hostPorts.srt $.Values.hostPortOffset }}"
+  WAV: {}
+  WebRTC:
+    default_track_sorting: "id_lth"
+    iceservers:
+      - urls: "stun:{{ $.Values.location.region }}.{{ $.Values.ingress.domain }}:{{ $.Values.coturn.ports.listening }}"
+      - urls: "turn:{{ $.Values.location.region }}.{{ $.Values.ingress.domain }}:{{ $.Values.coturn.ports.listening }}"
+        username: "{{ $.Values.coturn.auth.username }}"
+        credential: "{{ $.Values.coturn.auth.password }}"
+      - urls: "stun:{{ $.Values.location.region }}.{{ $.Values.ingress.domain }}:{{ $.Values.coturn.ports.tlsListening }}"
+      - urls: "turn:{{ $.Values.location.region }}.{{ $.Values.ingress.domain }}:{{ $.Values.coturn.ports.tlsListening }}"
+        "username": "{{ $.Values.coturn.auth.username }}"
+        "credential": "{{ $.Values.coturn.auth.password }}"
+  livepeer-catalyst-api:
+    http-addr: "0.0.0.0:8989"
+    http-internal-addr: "0.0.0.0:7979"
+  broadcaster:
+    connector: livepeer
+  livepeer-vmagent:
+    envflag.enable: "true"
+    envflag.prefix: VMAGENT_
+
+triggers: {}
+
+extraFiles: {}
