@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "catalyst.fullname" . }}
+data:
+  catalyst.json: |-
+    {{- tpl .Values.conf . | nindent 4 }}
+  scrape_config.yaml: |-
+    {{- tpl .Values.scrapeConfig . | nindent 4 }}
+  coturn.conf: |-
+    {{- tpl .Values.coturn.config . | nindent 4 }}
+  {{- range $name, $content := .Values.extraFiles }}
+  {{- if $content }}
+  {{ $name }}: {{ $content | quote }}
+  {{- end }}
+  {{- end }}

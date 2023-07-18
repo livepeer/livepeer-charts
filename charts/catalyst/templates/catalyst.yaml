@@ -1,0 +1,430 @@
+{{- $cataNode := printf "%s-$(MY_POD_NAME).%s" .Values.location.region .Values.ingress.domain }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "catalyst.fullname" . }}
+  labels:
+    {{- include "catalyst.labels" . | nindent 4 }}
+  annotations:
+    livepeer.live/catalyst-archive-url-hash: {{ .Values.archiveUrl | sha256sum }}
+    livepeer.live/catalyst-archive-url: {{ .Values.archiveUrl }}
+spec:
+  serviceName: {{ include "catalyst.fullname" . }}
+  podManagementPolicy: Parallel
+  replicas: {{ .Values.replicas }}
+  updateStrategy:
+    type: OnDelete
+    rollingUpdate: null
+  selector:
+    matchLabels:
+      {{- include "catalyst.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        config/checksum: {{ tpl .Values.conf . | sha256sum }}
+        livepeer.live/catalyst-archive-url-hash: {{ .Values.archiveUrl | sha256sum }}
+        livepeer.live/catalyst-archive-url: {{ .Values.archiveUrl }}
+      labels:
+        {{- include "catalyst.selectorLabels" . | nindent 8 }}
+    spec:
+      hostNetwork: {{ .Values.hostNetwork }}
+      volumes:
+        - name: catalyst-conf
+          configMap:
+            name: {{ include "catalyst.fullname" . }}
+            defaultMode: 0600
+        - name: dshm
+          emptyDir:
+            medium: Memory
+        - name: wallet
+          secret:
+            secretName: {{ include "catalyst.fullname" . }}-wallet
+      containers:
+        - name: catalyst
+          image: {{ .Values.image }}
+          resources:
+            {{ toYaml .Values.resources | nindent 12 }}
+          args:
+            {{ toYaml .Values.args | nindent 12 }}
+          ports:
+          - name: serf
+            containerPort: {{ add $.Values.hostPorts.serf $.Values.hostPortOffset }}
+            hostPort: {{ add $.Values.hostPorts.serf $.Values.hostPortOffset }}
+            protocol: TCP
+          - name: serfudp
+            containerPort: {{ add $.Values.hostPorts.serf $.Values.hostPortOffset }}
+            hostPort: {{ add $.Values.hostPorts.serf $.Values.hostPortOffset }}
+            protocol: UDP
+          - name: go-livepeer-cli
+            containerPort: 7935
+          - name: mist-api
+            containerPort: 4242
+            {{- if $.Values.httpHostPort }}
+            hostPort: 4242
+            {{- end }}
+          - name: dtsc
+            containerPort: {{ add $.Values.hostPorts.dtsc $.Values.hostPortOffset }}
+            hostPort: {{ add $.Values.hostPorts.dtsc $.Values.hostPortOffset }}
+          - name: srt
+            containerPort: {{ add $.Values.hostPorts.srt $.Values.hostPortOffset }}
+            hostPort: {{ add $.Values.hostPorts.srt $.Values.hostPortOffset }}
+            protocol: UDP
+          - name: rtmp
+            containerPort: {{ add $.Values.hostPorts.rtmp $.Values.hostPortOffset }}
+            hostPort: {{ add $.Values.hostPorts.rtmp $.Values.hostPortOffset }}
+            protocol: TCP
+          - name: http
+            containerPort: 8080
+            {{- if $.Values.httpHostPort }}
+            hostPort: {{ add 8080 $.Values.hostPortOffset }}
+            {{- end }}
+            protocol: TCP
+          - name: hls
+            containerPort: 8081
+            {{- if $.Values.httpHostPort }}
+            hostPort: {{ add 8081 $.Values.hostPortOffset }}
+            {{- end }}
+            protocol: TCP
+          {{- if .Values.startupProbe }}
+          startupProbe:
+            httpGet:
+              path: /{{ .Values.prometheus }}
+              port: mist-api
+            failureThreshold: 30
+            periodSeconds: 10
+          {{- end }}
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MY_HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: MY_REGION
+              value: "{{ $.Values.location.region }}"
+            - name: MY_VMAGENT_LABEL
+              value: "node_name=$(MY_NODE_NAME),pod=$(MY_POD_NAME),catalyst_node={{ $cataNode }}"
+            - name: CATALYST_API_NODE
+              value: "{{ $cataNode }}"
+            - name: CATALYST_API_CLUSTER_ADDR
+              value: "0.0.0.0:{{ add $.Values.hostPorts.serf $.Values.hostPortOffset }}"
+            - name: CATALYST_API_CLUSTER_ADVERTISE_ADDR
+              value: "$(MY_HOST_IP):{{ add $.Values.hostPorts.serf $.Values.hostPortOffset }}"
+            - name: CATALYST_API_TAGS
+              value: "node=media,dtsc=dtsc://{{ $cataNode }}:{{ add $.Values.hostPorts.dtsc $.Values.hostPortOffset }},https=https://{{ $cataNode }}:{{ add 443 $.Values.ecosystemPortOffset }},http=https://{{ $cataNode }}:{{ add 443 $.Values.ecosystemPortOffset }},region={{ $.Values.location.region }},latitude={{ $.Values.location.latitude }},longitude={{ $.Values.location.longitude }}"
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: catalyst-conf
+              mountPath: /etc/livepeer
+            - mountPath: /dev/shm
+              name: dshm
+            - name: wallet
+              mountPath: "/pw.txt"
+              subPath: "passphrase.secret"
+              readOnly: true
+            - name: wallet
+              subPath: "wallet.secret"
+              readOnly: true
+              mountPath: "/root/.lpData/{{ required "Network is required" .Values.protocols.broadcaster.network }}/keystore/wallet"
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "catalyst.fullname" $ }}
+  labels:
+    {{- include "catalyst.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 1935
+      targetPort: {{ add $.Values.hostPorts.srt $.Values.hostPortOffset }}
+      protocol: TCP
+      name: rtmp
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+    - port: 8989
+      targetPort: 8989
+      protocol: TCP
+      name: catalyst-api-external
+      # Legacy port for migration off of catalyst-node
+    - port: 8090
+      targetPort: 8989
+      protocol: TCP
+      name: catalyst-api-external-legacy
+    - port: 7979
+      targetPort: 7979
+      protocol: TCP
+      name: catalyst-api-internal
+    - port: 8889
+      targetPort: {{ add $.Values.hostPorts.srt $.Values.hostPortOffset }}
+      protocol: UDP
+      name: srt
+    - port: 9935
+      targetPort: {{ add $.Values.hostPorts.serf $.Values.hostPortOffset }}
+      protocol: TCP
+      name: serftcp
+    - port: 9935
+      targetPort: {{ add $.Values.hostPorts.serf $.Values.hostPortOffset }}
+      protocol: UDP
+      name: serfudp
+    - port: {{ add $.Values.hostPorts.dtsc $.Values.hostPortOffset }}
+      targetPort: {{ add $.Values.hostPorts.dtsc $.Values.hostPortOffset }}
+      protocol: TCP
+      name: dtsc
+  selector:
+    {{- include "catalyst.selectorLabels" $ | nindent 4 }}
+
+---
+
+{{- $myDomain := printf "playback.%s" $.Values.ingress.domain -}}
+{{- $allDomains := append $.Values.ingress.additionalDomains (dict "domain" $myDomain "tlsSecret" $.Values.ingress.tlsSecret) }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "catalyst.fullname" $ }}
+spec:
+  tls:
+  {{- range $allDomains }}
+  - hosts:
+      - {{ .domain }}
+    secretName: {{ .tlsSecret }}
+  {{- end }}
+  ingressClassName: {{ $.Values.ingress.prefix }}-nginx
+  rules:
+  {{- range $allDomains }}
+  - host: "{{ .domain }}"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "catalyst.fullname" $ }}
+            port:
+              number: 8989
+  {{- end }}
+
+---
+
+{{- if .Values.wallet }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "catalyst.fullname" $ }}-wallet
+type: Opaque
+data:
+  "wallet.secret": |-
+    {{ required "Helm Error: .Values.wallet is required" .Values.wallet | b64enc }}
+  "passphrase.secret": |-
+    {{ required "Helm error: .Values.passphrase is required" .Values.passphrase | b64enc }}
+{{- end }}
+
+---
+
+# playback.{{ $.Values.ingress.domain }}
+{{- $regionalDomain := printf "%s-playback.%s" $.Values.ingress.region $.Values.ingress.domain }}
+# this one is just a headless service for hostPort external-dns
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "catalyst.fullname" $ }}-dns
+  labels:
+    {{- include "catalyst.labels" $ | nindent 4 }}
+  annotations:
+    livepeer.live/external-dns: "true"
+    external-dns.alpha.kubernetes.io/ttl: "60"
+    external-dns.alpha.kubernetes.io/ingress-hostname-source: annotation-only
+    external-dns.alpha.kubernetes.io/hostname: "{{ $regionalDomain }}"
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "catalyst.selectorLabels" $ | nindent 4 }}
+
+---
+
+{{- $replicaCount := int .Values.replicas }}
+{{- $fullname := include "catalyst.fullname" $ }}
+{{- range $i, $e := until $replicaCount }}
+{{- $nodeDomain := printf "%s-%s-%d.%s" $.Values.ingress.region $fullname $i $.Values.ingress.domain }}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "catalyst.fullname" $ }}-{{ $i }}
+  labels:
+    {{- include "catalyst.labels" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 1935
+      targetPort: 1935
+      protocol: TCP
+      name: rtmp
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+    - port: 8081
+      targetPort: 8081
+      protocol: TCP
+      name: hls
+    - port: 8989
+      targetPort: 8989
+      protocol: TCP
+      name: catalyst-api-external
+    - port: {{ add $.Values.hostPorts.dtsc $.Values.hostPortOffset }}
+      targetPort: {{ add $.Values.hostPorts.dtsc $.Values.hostPortOffset }}
+      protocol: TCP
+      name: dtsc
+    - port: 4242
+      targetPort: 4242
+      protocol: TCP
+      name: mist-api
+  selector:
+    statefulset.kubernetes.io/pod-name: {{ include "catalyst.fullname" $ }}-{{ $i }}
+    {{- include "catalyst.selectorLabels" $ | nindent 4 }}
+
+---
+
+# this one is just a headless service for hostPort external-dns
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "catalyst.fullname" $ }}-{{ $i }}-dns
+  labels:
+    {{- include "catalyst.labels" $ | nindent 4 }}
+  annotations:
+    livepeer.live/external-dns: "true"
+    external-dns.alpha.kubernetes.io/ttl: "60"
+    external-dns.alpha.kubernetes.io/ingress-hostname-source: annotation-only
+    external-dns.alpha.kubernetes.io/hostname: "{{ $nodeDomain }}"
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    statefulset.kubernetes.io/pod-name: {{ include "catalyst.fullname" $ }}-{{ $i }}
+    {{- include "catalyst.selectorLabels" $ | nindent 4 }}
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "catalyst.fullname" $ }}-{{ $i }}
+  {{- if $.Values.ingress.annotations }}
+  annotations:
+    {{ toYaml $.Values.ingress.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  tls:
+  - hosts:
+      - {{ $.Values.ingress.domain }}
+    secretName: {{ $.Values.ingress.tlsSecret }}
+  ingressClassName: {{ $.Values.ingress.prefix }}-nginx
+  rules:
+  - host: "{{ $nodeDomain }}"
+    http:
+      paths:
+      - path: /hls
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "catalyst.fullname" $ }}-{{ $i }}
+            port:
+              number: 8081
+      - path: /asset
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "catalyst.fullname" $ }}-{{ $i }}
+            port:
+              number: 8989
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "catalyst.fullname" $ }}-{{ $i }}
+            port:
+              number: 8080
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "catalyst.fullname" $ }}-{{ $i }}-stats
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 100m
+    nginx.ingress.kubernetes.io/proxy-buffering: "on"
+    # nginx.ingress.kubernetes.io/configuration-snippet: |
+    #   proxy_cache static-cache;
+    #   proxy_cache_valid any 5s;
+    #   add_header X-Cache-Status $upstream_cache_status;
+    #   proxy_ignore_headers Expires Cache-Control;
+    #   proxy_cache_background_update on;
+    #   proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504 http_403 http_404 http_429;
+spec:
+  tls:
+  - hosts:
+      - {{ $.Values.ingress.domain }}
+    secretName: {{ $.Values.ingress.tlsSecret }}
+  ingressClassName: {{ $.Values.ingress.prefix }}-nginx
+  rules:
+  - host: "{{ $nodeDomain }}"
+    http:
+      paths:
+      - path: /{{ $.Values.prometheus }}
+        pathType: Exact
+        backend:
+          service:
+            name: {{ include "catalyst.fullname" $ }}-{{ $i }}
+            port:
+              number: 4242
+      - path: /{{ $.Values.prometheus }}.json
+        pathType: Exact
+        backend:
+          service:
+            name: {{ include "catalyst.fullname" $ }}-{{ $i }}
+            port:
+              number: 4242
+
+---
+
+{{- end -}}
