@@ -33,9 +33,17 @@ jobs:
             fi
           done
 
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1
         with:
           config: .github/chart-releaser.yaml
+          skip_existing: false
+          mark_as_latest: false
+          pages_branch: gh-pages
         env:
           CR_TOKEN: "${{ github.token }}"
