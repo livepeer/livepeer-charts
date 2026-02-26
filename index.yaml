@@ -1,0 +1,31 @@
+apiVersion: v1
+entries:
+  livepeer-common:
+  - apiVersion: v2
+    appVersion: v0.8.9
+    created: "2026-02-26T08:22:50.564340612Z"
+    description: Shared Helm library chart for Livepeer workloads
+    digest: ff0476e683c67472f0c4702ae8b2d9bc922224bae28e9e8c1f1be92bade90d14
+    icon: https://cdn.prod.website-files.com/660e2fe4cba2fca14e90fc61/6644be2f885be8fd1dc92233_favicon256-t.png
+    name: livepeer-common
+    type: library
+    urls:
+    - https://github.com/livepeer/livepeer-charts/releases/download/livepeer-common-1.0.0/livepeer-common-1.0.0.tgz
+    version: 1.0.0
+  livepeer-gateway:
+  - apiVersion: v2
+    appVersion: v0.8.9
+    created: "2026-02-26T08:22:50.789120581Z"
+    dependencies:
+    - name: livepeer-common
+      repository: file://../livepeer-common
+      version: 1.0.0
+    description: Livepeer gateway chart supporting singleton and distributed modes
+    digest: 8eb377f00aaf80c306d4f05eca476cff31904098a82eda7b7e5ba46f57edfc82
+    icon: https://cdn.prod.website-files.com/660e2fe4cba2fca14e90fc61/6644be2f885be8fd1dc92233_favicon256-t.png
+    name: livepeer-gateway
+    type: application
+    urls:
+    - https://github.com/livepeer/livepeer-charts/releases/download/livepeer-gateway-1.0.0/livepeer-gateway-1.0.0.tgz
+    version: 1.0.0
+generated: "2026-02-26T08:22:50.78913064Z"
