@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "charts/**"
+      - ".github/chart-releaser.yaml"
+      - ".github/workflows/helm-release.yaml"
 
 permissions:
   contents: write
