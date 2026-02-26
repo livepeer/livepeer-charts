@@ -1,0 +1,48 @@
+{{- include "livepeer-gateway.validateMode" . -}}
+{{- include "livepeer-gateway.validateRemoteSigner" . -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "livepeer-gateway.fullname" . }}
+  labels:
+    {{- include "livepeer-gateway.labels" . | nindent 4 }}
+  {{- with .Values.gateway.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.gateway.replicaCount }}
+  serviceName: {{ include "livepeer-gateway.fullname" . }}
+  updateStrategy:
+    {{- toYaml .Values.gateway.strategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "livepeer-gateway.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "livepeer-gateway.selectorLabels" . | nindent 8 }}
+        {{- with .Values.gateway.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.gateway.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- include "livepeer-common.imagePullSecrets" .Values.imagePullSecrets | nindent 6 }}
+      {{- include "livepeer-common.nodeSelector" .Values.gateway.nodeSelector | nindent 6 }}
+      {{- include "livepeer-common.tolerations" .Values.gateway.tolerations | nindent 6 }}
+      {{- include "livepeer-common.affinity" .Values.gateway.affinity | nindent 6 }}
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "livepeer-gateway.serviceAccountName" . }}
+      {{- end }}
+      containers:
+        {{- include "livepeer-gateway.containerSpec" . | nindent 8 }}
+        {{- if and .Values.remoteSigner.enabled (eq .Values.gateway.mode "singleton") }}
+        {{- include "livepeer-gateway.remoteSignerContainerSpec" . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.gateway.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

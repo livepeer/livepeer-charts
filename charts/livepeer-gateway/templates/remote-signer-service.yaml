@@ -1,0 +1,18 @@
+{{- if and .Values.remoteSigner.enabled .Values.remoteSigner.service.enabled (eq .Values.gateway.mode "distributed") }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "livepeer-gateway.remoteSignerFullname" . }}
+  labels:
+    {{- include "livepeer-gateway.remoteSignerLabels" . | nindent 4 }}
+  {{- with .Values.remoteSigner.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.remoteSigner.service.type }}
+  ports:
+    {{- toYaml .Values.remoteSigner.service.ports | nindent 4 }}
+  selector:
+    {{- include "livepeer-gateway.remoteSignerSelectorLabels" . | nindent 4 }}
+{{- end }}

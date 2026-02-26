@@ -1,0 +1,53 @@
+{{- if .Values.gateway.ingress.perReplica.enabled }}
+{{- $fullname := include "livepeer-gateway.fullname" . }}
+{{- $labels := include "livepeer-gateway.labels" . }}
+{{- $perReplica := .Values.gateway.ingress.perReplica }}
+{{- range $i := until (int .Values.gateway.replicaCount) }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}-{{ $i }}
+  labels:
+    {{- $labels | nindent 4 }}
+  {{- with $perReplica.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with $.Values.gateway.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with $perReplica.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ $perReplica.hostTemplate | replace "${INDEX}" (toString $i) | replace "${FULLNAME}" $fullname | quote }}
+      http:
+        paths:
+          {{- if $perReplica.paths }}
+          {{- range $perReplica.paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "ImplementationSpecific" }}
+            backend:
+              service:
+                name: {{ $fullname }}-{{ $i }}
+                port:
+                  {{- if .servicePort }}
+                  number: {{ .servicePort }}
+                  {{- else }}
+                  name: http-video
+                  {{- end }}
+          {{- end }}
+          {{- else }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullname }}-{{ $i }}
+                port:
+                  name: http-video
+          {{- end }}
+{{- end }}
+{{- end }}

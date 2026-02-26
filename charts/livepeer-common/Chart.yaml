@@ -1,0 +1,6 @@
+apiVersion: v2
+name: livepeer-common
+description: Shared Helm library chart for Livepeer workloads
+type: library
+version: 0.1.0
+appVersion: "v0.8.9"

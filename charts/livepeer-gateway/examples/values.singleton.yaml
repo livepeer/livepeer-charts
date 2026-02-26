@@ -1,0 +1,47 @@
+gateway:
+  mode: singleton
+  replicaCount: 1
+
+  args:
+    - -gateway
+    - -v=6
+    - -cliAddr=0.0.0.0:7935
+    - -httpAddr=0.0.0.0:8935
+    - -monitor=true
+
+  env:
+    AUTH_WEBHOOK_URL: ""
+    ORCH_WEBHOOK_URL: ""
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+
+  service:
+    enabled: true
+
+remoteSigner:
+  enabled: true
+  httpPort: 7936
+
+  args:
+    - -network=mainnet
+    - -ethUrl=$(ETH_URL)
+    - -ethPassword=/pw.txt
+    - -v=6
+    - -monitor=true
+
+  env:
+    ETH_URL: "https://eth-mainnet.example.com"
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi

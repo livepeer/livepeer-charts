@@ -1,0 +1,17 @@
+{{- if .Values.gateway.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "livepeer-gateway.fullname" . }}
+  labels:
+    {{- include "livepeer-gateway.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: {{ include "livepeer-gateway.fullname" . }}
+  minReplicas: {{ .Values.gateway.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.gateway.autoscaling.maxReplicas }}
+  metrics:
+    {{- toYaml .Values.gateway.autoscaling.metrics | nindent 4 }}
+{{- end }}

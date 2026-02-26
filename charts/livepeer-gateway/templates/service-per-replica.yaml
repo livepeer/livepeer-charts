@@ -1,0 +1,25 @@
+{{- if .Values.gateway.service.perReplica.enabled }}
+{{- $fullname := include "livepeer-gateway.fullname" . }}
+{{- $labels := include "livepeer-gateway.labels" . }}
+{{- $svcPorts := .Values.gateway.service.ports }}
+{{- $annotations := .Values.gateway.service.perReplica.annotations }}
+{{- range $i := until (int .Values.gateway.replicaCount) }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-{{ $i }}
+  labels:
+    {{- $labels | nindent 4 }}
+  {{- with $annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    {{- toYaml $svcPorts | nindent 4 }}
+  selector:
+    statefulset.kubernetes.io/pod-name: {{ $fullname }}-{{ $i }}
+{{- end }}
+{{- end }}

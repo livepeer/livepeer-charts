@@ -1,0 +1,67 @@
+name: Helm CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "charts/**"
+      - ".github/workflows/helm-ci.yaml"
+  pull_request:
+    paths:
+      - "charts/**"
+      - ".github/workflows/helm-ci.yaml"
+
+jobs:
+  lint-and-template:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.1
+        with:
+          version: v4.1.1
+
+      - name: Build dependencies
+        run: helm dependency build charts/livepeer-gateway
+
+      - name: Lint livepeer-common
+        run: helm lint charts/livepeer-common
+
+      - name: Lint livepeer-gateway
+        run: helm lint charts/livepeer-gateway
+
+      - name: Template - default values
+        run: helm template test-release charts/livepeer-gateway
+
+      - name: Template - singleton example
+        run: helm template test-release charts/livepeer-gateway -f charts/livepeer-gateway/examples/values.singleton.yaml
+
+      - name: Template - distributed example
+        run: helm template test-release charts/livepeer-gateway -f charts/livepeer-gateway/examples/values.distributed.yaml
+
+      - name: Template - invalid mode (expect failure)
+        run: |
+          if helm template test-release charts/livepeer-gateway --set gateway.mode=invalid 2>/dev/null; then
+            echo "Expected failure for invalid mode but template succeeded"
+            exit 1
+          fi
+
+  package:
+    runs-on: ubuntu-latest
+    needs: lint-and-template
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.1
+        with:
+          version: v4.1.1
+
+      - name: Build dependencies
+        run: helm dependency build charts/livepeer-gateway
+
+      - name: Package livepeer-gateway
+        run: helm package charts/livepeer-gateway

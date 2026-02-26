@@ -1,0 +1,37 @@
+{{- if and .Values.remoteSigner.enabled (eq .Values.gateway.mode "distributed") }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "livepeer-gateway.remoteSignerFullname" . }}
+  labels:
+    {{- include "livepeer-gateway.remoteSignerLabels" . | nindent 4 }}
+  {{- with .Values.remoteSigner.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.remoteSigner.autoscaling.enabled }}
+  replicas: 1
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "livepeer-gateway.remoteSignerSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "livepeer-gateway.remoteSignerSelectorLabels" . | nindent 8 }}
+        {{- with .Values.remoteSigner.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.remoteSigner.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- include "livepeer-common.imagePullSecrets" .Values.imagePullSecrets | nindent 6 }}
+      {{- include "livepeer-common.nodeSelector" .Values.remoteSigner.nodeSelector | nindent 6 }}
+      {{- include "livepeer-common.tolerations" .Values.remoteSigner.tolerations | nindent 6 }}
+      {{- include "livepeer-common.affinity" .Values.remoteSigner.affinity | nindent 6 }}
+      containers:
+        {{- include "livepeer-gateway.remoteSignerContainerSpec" . | nindent 8 }}
+{{- end }}

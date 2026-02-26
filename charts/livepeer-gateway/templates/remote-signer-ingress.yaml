@@ -1,0 +1,39 @@
+{{- if and .Values.remoteSigner.enabled .Values.remoteSigner.ingress.enabled (eq .Values.gateway.mode "distributed") }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "livepeer-gateway.remoteSignerFullname" . }}
+  labels:
+    {{- include "livepeer-gateway.remoteSignerLabels" . | nindent 4 }}
+  {{- with .Values.remoteSigner.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.remoteSigner.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.remoteSigner.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.remoteSigner.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "ImplementationSpecific" }}
+            backend:
+              service:
+                name: {{ include "livepeer-gateway.remoteSignerFullname" $ }}
+                port:
+                  {{- if .servicePort }}
+                  number: {{ .servicePort }}
+                  {{- else }}
+                  name: signer-http
+                  {{- end }}
+          {{- end }}
+    {{- end }}
+{{- end }}

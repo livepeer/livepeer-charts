@@ -1,0 +1,179 @@
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: livepeer/go-livepeer
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+gateway:
+  mode: singleton  # singleton | distributed
+
+  replicaCount: 1
+
+  command:
+    - livepeer
+  args:
+    - -gateway
+
+  env: {}
+
+  annotations: {}
+  labels: {}
+  podAnnotations: {}
+  podLabels: {}
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  ports:
+    - name: http-video
+      containerPort: 8935
+      protocol: TCP
+    - name: http-cli
+      containerPort: 7935
+      protocol: TCP
+    - name: rtmp
+      containerPort: 1935
+      protocol: TCP
+
+  startupProbe:
+    enabled: true
+    httpGet:
+      path: /status
+      port: http-cli
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 3
+    failureThreshold: 60
+
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /status
+      port: http-cli
+    failureThreshold: 6
+
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /status
+      port: http-cli
+    failureThreshold: 3
+    timeoutSeconds: 8
+
+  resources: {}
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  volumes: []
+  volumeMounts: []
+
+  service:
+    enabled: true
+    type: ClusterIP
+    annotations: {}
+    ports:
+      - port: 80
+        targetPort: 8935
+        protocol: TCP
+        name: http-video
+      - port: 7935
+        targetPort: 7935
+        protocol: TCP
+        name: http-cli
+
+    perReplica:
+      enabled: false
+      annotations: {}
+
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts: []
+    tls: []
+
+    perReplica:
+      enabled: false
+      annotations: {}
+      hostTemplate: ""
+      paths: []
+      tls: []
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    metrics:
+      - type: Resource
+        resource:
+          name: cpu
+          target:
+            type: Utilization
+            averageUtilization: 60
+
+remoteSigner:
+  enabled: false
+
+  image:
+    repository: livepeer/go-livepeer
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  command:
+    - livepeer
+  args: []
+  env: {}
+  httpPort: 7936
+
+  annotations: {}
+  labels: {}
+  podAnnotations: {}
+  podLabels: {}
+
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  service:
+    enabled: true
+    type: ClusterIP
+    annotations: {}
+    ports:
+      - port: 7936
+        targetPort: 7936
+        protocol: TCP
+        name: signer-http
+
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts: []
+    tls: []
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    metrics:
+      - type: Resource
+        resource:
+          name: cpu
+          target:
+            type: Utilization
+            averageUtilization: 60
+
+serviceAccount:
+  create: false
+  name: ""
+  annotations: {}

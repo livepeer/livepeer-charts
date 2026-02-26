@@ -1,0 +1,17 @@
+name: EditorConfig
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check EditorConfig compliance
+        uses: editorconfig-checker/action-editorconfig-checker@v2
+

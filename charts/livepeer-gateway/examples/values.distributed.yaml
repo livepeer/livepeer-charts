@@ -1,0 +1,94 @@
+gateway:
+  mode: distributed
+  replicaCount: 3
+
+  args:
+    - -gateway
+    - -v=6
+    - -cliAddr=0.0.0.0:7935
+    - -httpAddr=0.0.0.0:8935
+    - -monitor=true
+
+  env:
+    AUTH_WEBHOOK_URL: ""
+    ORCH_WEBHOOK_URL: ""
+
+  resources:
+    requests:
+      cpu: "1"
+      memory: 1Gi
+    limits:
+      cpu: "4"
+      memory: 2Gi
+
+  service:
+    enabled: true
+
+    perReplica:
+      enabled: true
+
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/use-regex: "true"
+    hosts:
+      - host: gw.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - hosts:
+          - gw.example.com
+        secretName: gw-tls
+
+    perReplica:
+      enabled: true
+      hostTemplate: "gw-${INDEX}.example.com"
+      annotations:
+        nginx.ingress.kubernetes.io/use-regex: "true"
+      tls:
+        - hosts:
+            - "gw-0.example.com"
+            - "gw-1.example.com"
+            - "gw-2.example.com"
+          secretName: gw-tls
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+
+remoteSigner:
+  enabled: true
+  httpPort: 7936
+
+  args:
+    - -network=mainnet
+    - -ethUrl=$(ETH_URL)
+    - -ethPassword=/pw.txt
+    - -v=6
+    - -monitor=true
+    - -depositMultiplier=1
+    - -maxTicketEV=10000000000000
+    - -maxTotalEV=300000000000000
+    - -pixelsPerUnit=1
+    - -maxPricePerUnit=1000
+    - -blockPollingInterval=20
+
+  env:
+    ETH_URL: "https://eth-mainnet.example.com"
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+
+  service:
+    enabled: true
+
+  ingress:
+    enabled: false
