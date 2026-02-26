@@ -1,0 +1,43 @@
+# GitHub owner or organization of the chart repository
+owner: livepeer
+
+repo: livepeer-charts
+
+# Directory where Helm charts are located
+charts-dir: charts
+
+# Commit message for publishing the Helm chart
+commit-message: "chore(release): publish Helm chart {{ .Name }} version {{ .Version }}"
+
+# Helm registry URL (optional, for pushing to OCI registries)
+# registry: ""
+
+# Path to custom index.yaml generator (advanced)
+# index-generator: ""
+
+# Name template for release/tag names
+release-name-template: "{{ .Name }}-{{ .Version }}"
+
+# Skip chart upload if version already exists
+skip-existing: true
+
+# Use prerelease GitHub releases for charts with pre-release semver versions
+# prerelease: false
+
+# Mark all releases as prerelease
+# make-release-prerelease: false
+
+# Mark all releases as draft (not published until manually released)
+# make-release-draft: false
+
+# Mark all releases as latest
+# make-release-latest: false
+
+# Append the .tgz URL to the index.yaml instead of a relative path
+# absolute-url: false
+
+# Append a custom annotation to the GitHub release
+# release-annotation: ""
+
+# Enable debug logging
+# debug: false
