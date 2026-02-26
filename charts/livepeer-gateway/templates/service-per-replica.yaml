@@ -2,7 +2,7 @@
 {{- $fullname := include "livepeer-gateway.fullname" . }}
 {{- $labels := include "livepeer-gateway.labels" . }}
 {{- $svcPorts := .Values.gateway.service.ports }}
-{{- $annotations := .Values.gateway.service.perReplica.annotations }}
+{{- $annotations := include "livepeer-common.annotations" .Values.gateway.service.perReplica.annotations }}
 {{- range $i := until (int .Values.gateway.replicaCount) }}
 ---
 apiVersion: v1
@@ -13,7 +13,7 @@ metadata:
     {{- $labels | nindent 4 }}
   {{- with $annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
 spec:
   type: ClusterIP

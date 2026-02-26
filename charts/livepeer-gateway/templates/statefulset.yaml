@@ -6,9 +6,9 @@ metadata:
   name: {{ include "livepeer-gateway.fullname" . }}
   labels:
     {{- include "livepeer-gateway.labels" . | nindent 4 }}
-  {{- with .Values.gateway.annotations }}
+  {{- with (include "livepeer-common.annotations" .Values.gateway.annotations) }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
 spec:
   replicas: {{ .Values.gateway.replicaCount }}
@@ -21,13 +21,10 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "livepeer-gateway.selectorLabels" . | nindent 8 }}
-        {{- with .Values.gateway.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-      {{- with .Values.gateway.podAnnotations }}
+        {{- include "livepeer-common.mergeLabels" (dict "base" (include "livepeer-gateway.labels" .) "extra" .Values.gateway.podLabels) | nindent 8 }}
+      {{- with (include "livepeer-common.annotations" .Values.gateway.podAnnotations) }}
       annotations:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
     spec:
       {{- include "livepeer-common.imagePullSecrets" .Values.imagePullSecrets | nindent 6 }}
@@ -42,7 +39,7 @@ spec:
         {{- if and .Values.remoteSigner.enabled (eq .Values.gateway.mode "singleton") }}
         {{- include "livepeer-gateway.remoteSignerContainerSpec" . | nindent 8 }}
         {{- end }}
-      {{- with .Values.gateway.volumes }}
+      {{- with (include "livepeer-common.volumes" .Values.gateway.volumes) }}
       volumes:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}

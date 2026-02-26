@@ -15,10 +15,7 @@ Gateway chart helpers — delegates to livepeer-common and adds gateway-specific
 {{- end }}
 
 {{- define "livepeer-gateway.labels" -}}
-{{ include "livepeer-common.labels" . }}
-{{- with .Values.gateway.labels }}
-{{ toYaml . }}
-{{- end }}
+{{ include "livepeer-common.mergeLabels" (dict "base" (include "livepeer-common.labels" .) "extra" .Values.gateway.labels) }}
 {{- end }}
 
 {{- define "livepeer-gateway.selectorLabels" -}}
@@ -38,10 +35,7 @@ Remote signer fullname — suffixed with -remote-signer.
 {{- end }}
 
 {{- define "livepeer-gateway.remoteSignerLabels" -}}
-{{ include "livepeer-common.labels" . }}
-{{- with .Values.remoteSigner.labels }}
-{{ toYaml . }}
-{{- end }}
+{{ include "livepeer-common.mergeLabels" (dict "base" (include "livepeer-common.labels" .) "extra" .Values.remoteSigner.labels) }}
 {{- end }}
 
 {{- define "livepeer-gateway.remoteSignerSelectorLabels" -}}

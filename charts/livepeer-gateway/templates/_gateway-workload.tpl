@@ -46,8 +46,8 @@ Returns a single container dict suitable for embedding in a pod spec.
   resources:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- with .Values.gateway.volumeMounts }}
+  {{- with (include "livepeer-common.volumeMounts" .Values.gateway.volumeMounts) }}
   volumeMounts:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
 {{- end }}

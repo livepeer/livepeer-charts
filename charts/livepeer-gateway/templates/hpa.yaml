@@ -5,6 +5,10 @@ metadata:
   name: {{ include "livepeer-gateway.fullname" . }}
   labels:
     {{- include "livepeer-gateway.labels" . | nindent 4 }}
+  {{- with (include "livepeer-common.annotations" .Values.gateway.annotations) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1

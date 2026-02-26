@@ -5,9 +5,9 @@ metadata:
   name: {{ include "livepeer-gateway.fullname" . }}
   labels:
     {{- include "livepeer-gateway.labels" . | nindent 4 }}
-  {{- with .Values.gateway.service.annotations }}
+  {{- with (include "livepeer-common.annotations" .Values.gateway.service.annotations) }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
 spec:
   type: {{ .Values.gateway.service.type }}

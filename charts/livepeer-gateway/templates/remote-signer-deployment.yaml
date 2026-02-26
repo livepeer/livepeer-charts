@@ -5,9 +5,9 @@ metadata:
   name: {{ include "livepeer-gateway.remoteSignerFullname" . }}
   labels:
     {{- include "livepeer-gateway.remoteSignerLabels" . | nindent 4 }}
-  {{- with .Values.remoteSigner.annotations }}
+  {{- with (include "livepeer-common.annotations" .Values.remoteSigner.annotations) }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
 spec:
   {{- if not .Values.remoteSigner.autoscaling.enabled }}
@@ -19,13 +19,10 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "livepeer-gateway.remoteSignerSelectorLabels" . | nindent 8 }}
-        {{- with .Values.remoteSigner.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-      {{- with .Values.remoteSigner.podAnnotations }}
+        {{- include "livepeer-common.mergeLabels" (dict "base" (include "livepeer-gateway.remoteSignerLabels" .) "extra" .Values.remoteSigner.podLabels) | nindent 8 }}
+      {{- with (include "livepeer-common.annotations" .Values.remoteSigner.podAnnotations) }}
       annotations:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
     spec:
       {{- include "livepeer-common.imagePullSecrets" .Values.imagePullSecrets | nindent 6 }}

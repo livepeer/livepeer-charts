@@ -5,9 +5,9 @@ metadata:
   name: {{ include "livepeer-gateway.remoteSignerFullname" . }}
   labels:
     {{- include "livepeer-gateway.remoteSignerLabels" . | nindent 4 }}
-  {{- with .Values.remoteSigner.service.annotations }}
+  {{- with (include "livepeer-common.annotations" .Values.remoteSigner.service.annotations) }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- . | nindent 4 }}
   {{- end }}
 spec:
   type: {{ .Values.remoteSigner.service.type }}
