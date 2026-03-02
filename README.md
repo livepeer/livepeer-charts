@@ -24,6 +24,18 @@ Each deployable chart depends on `livepeer-common` for shared template functions
 
 ## Quick Start
 
+### From the Helm repository
+
+Charts are published to [charts.livepeer.org](https://charts.livepeer.org).
+
+```bash
+helm repo add livepeer https://charts.livepeer.org
+helm repo update
+helm install my-gateway livepeer/livepeer-gateway -f values.yaml
+```
+
+### From source
+
 ```bash
 cd charts/livepeer-gateway
 helm dependency build
