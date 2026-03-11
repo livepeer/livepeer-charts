@@ -11,12 +11,12 @@ home: https://charts.livepeer.org/
 sources:
   - https://github.com/livepeer/livepeer-charts
   - https://github.com/livepeer/livepeer-charts/blob/main/charts/livepeer-gateway/README.md
-version: 1.0.0
-appVersion: "v0.8.9"
+version: 1.1.0
+appVersion: "v0.8.10"
 icon: https://cdn.prod.website-files.com/660e2fe4cba2fca14e90fc61/6644be2f885be8fd1dc92233_favicon256-t.png
 dependencies:
   - name: livepeer-common
-    version: 1.0.0
+    version: 1.1.0
     repository: file://../livepeer-common
 maintainers:
   - name: Livepeer
