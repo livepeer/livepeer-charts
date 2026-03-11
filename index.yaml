@@ -2,6 +2,17 @@ apiVersion: v1
 entries:
   livepeer-common:
   - apiVersion: v2
+    appVersion: v0.8.10
+    created: "2026-03-11T03:56:26.30089322Z"
+    description: Shared Helm library chart for Livepeer workloads
+    digest: 7ec779da612ae6671eda790c38deb3fe93b6cd0256d68b09416abe768af05517
+    icon: https://cdn.prod.website-files.com/660e2fe4cba2fca14e90fc61/6644be2f885be8fd1dc92233_favicon256-t.png
+    name: livepeer-common
+    type: library
+    urls:
+    - https://github.com/livepeer/livepeer-charts/releases/download/livepeer-common-1.1.0/livepeer-common-1.1.0.tgz
+    version: 1.1.0
+  - apiVersion: v2
     appVersion: v0.8.9
     created: "2026-02-26T08:22:50.564340612Z"
     description: Shared Helm library chart for Livepeer workloads
@@ -13,6 +24,36 @@ entries:
     - https://github.com/livepeer/livepeer-charts/releases/download/livepeer-common-1.0.0/livepeer-common-1.0.0.tgz
     version: 1.0.0
   livepeer-gateway:
+  - apiVersion: v2
+    appVersion: v0.8.10
+    created: "2026-03-11T03:56:26.476810622Z"
+    dependencies:
+    - name: livepeer-common
+      repository: file://../livepeer-common
+      version: 1.1.0
+    description: Livepeer gateway chart supporting singleton and distributed modes
+    digest: 76529c8360356600817cf6d593185c4af6eeb287f8248e55a8a02d67e3622932
+    home: https://charts.livepeer.org/
+    icon: https://cdn.prod.website-files.com/660e2fe4cba2fca14e90fc61/6644be2f885be8fd1dc92233_favicon256-t.png
+    keywords:
+    - livepeer
+    - livepeer-gateway
+    - helm
+    - kubernetes
+    maintainers:
+    - email: support@livepeer.org
+      name: Livepeer
+      url: https://github.com/livepeer
+    - name: hjpotter92
+      url: https://github.com/hjpotter92
+    name: livepeer-gateway
+    sources:
+    - https://github.com/livepeer/livepeer-charts
+    - https://github.com/livepeer/livepeer-charts/blob/main/charts/livepeer-gateway/README.md
+    type: application
+    urls:
+    - https://github.com/livepeer/livepeer-charts/releases/download/livepeer-gateway-1.1.0/livepeer-gateway-1.1.0.tgz
+    version: 1.1.0
   - apiVersion: v2
     appVersion: v0.8.9
     created: "2026-02-26T08:22:50.789120581Z"
@@ -28,4 +69,4 @@ entries:
     urls:
     - https://github.com/livepeer/livepeer-charts/releases/download/livepeer-gateway-1.0.0/livepeer-gateway-1.0.0.tgz
     version: 1.0.0
-generated: "2026-02-26T08:22:50.78913064Z"
+generated: "2026-03-11T03:56:26.476824728Z"
